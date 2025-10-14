@@ -4,6 +4,7 @@ import asyncio
 import copy
 import json
 import logging
+import subprocess
 import time
 from pathlib import Path, PurePosixPath
 from typing import Annotated, Any, Literal
@@ -1249,17 +1250,43 @@ class DefaultAgent(AbstractAgent):
 
         n_step = len(self.trajectory) + 1
         self.logger.info("=" * 25 + f" STEP {n_step} " + "=" * 25)
+        self.logger.info("pytest " + f" STEP {n_step} ")
+
+        script_path = "/home/tianpei/IdeaProjects/SWE-agent/sweagent/agent/middleware_gate.sh"
+
+        try:
+            result = subprocess.run(
+                ["bash", script_path],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            self.logger.info("Shell script executed successfully.")
+            if result.stdout:
+                self.logger.info(f"STDOUT:\n{result.stdout}")
+            if result.stderr:
+                self.logger.warning(f"STDERR:\n{result.stderr}")
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"Shell script failed with exit code {e.returncode}")
+            self.logger.error(f"STDERR:\n{e}")
+            # You could raise here if you want to stop the process:
+            # raise
+
         step_output = self.forward_with_handling(self.messages)
         self.add_step_to_history(step_output)
 
         self.info["submission"] = step_output.submission
         self.info["exit_status"] = step_output.exit_status  # type: ignore
-        self.info.update(self._get_edited_files_with_context(patch=step_output.submission or ""))  # type: ignore
+        edited_files_with_context = self._get_edited_files_with_context(patch=step_output.submission or "")
+        self.info.update(edited_files_with_context)  # type: ignore
         self.info["model_stats"] = self.model.stats.model_dump()
 
         self.add_step_to_trajectory(step_output)
 
         self._chook.on_step_done(step=step_output, info=self.info)
+
+
+
         return step_output
 
     def run(
