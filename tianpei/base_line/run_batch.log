@@ -1,0 +1,11 @@
+2025-10-03 01:38:24,462 - INFO - swea-run - Starting run. Find output files at /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test
+2025-10-03 01:38:24,467 - INFO - swea-run - Running on instance astropy__astropy-12907
+2025-10-03 01:38:24,467 - INFO - swea-run - Running on instance astropy__astropy-14182
+2025-10-03 01:44:58,982 - INFO - swea-run - Running on instance astropy__astropy-14365
+2025-10-03 01:46:14,071 - INFO - swea-run - Running on instance astropy__astropy-14995
+2025-10-03 01:49:31,995 - INFO - swea-run - Running on instance astropy__astropy-6938
+2025-10-03 01:51:55,432 - INFO - swea-run - Running on instance astropy__astropy-7746
+2025-10-03 01:58:33,609 - INFO - swea-run - Running on instance django__django-10914
+2025-10-03 01:58:41,114 - INFO - swea-run - Running on instance django__django-10924
+2025-10-03 02:06:09,549 - INFO - swea-run - Running on instance django__django-11001
+2025-10-03 02:06:55,444 - INFO - swea-run - Running on instance django__django-11019

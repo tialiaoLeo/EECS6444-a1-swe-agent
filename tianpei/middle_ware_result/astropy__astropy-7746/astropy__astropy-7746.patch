@@ -1,0 +1,799 @@
+diff --git a/astropy/wcs/wcs.py b/astropy/wcs/wcs.py
+index d3a06f2b31..cfa3dda859 100644
+--- a/astropy/wcs/wcs.py
++++ b/astropy/wcs/wcs.py
+@@ -1218,6 +1218,15 @@ reduce these to 2 dimensions using the naxis kwarg.
+                 raise ValueError(
+                     "Coordinate arrays are not broadcastable to each other")
+ 
++            # Handle empty arrays
++            if axes[0].size == 0:
++                # Return empty arrays with the same shape as input for each output dimension
++                if ra_dec_order and sky == 'output':
++                    return (np.empty(axes[0].shape, dtype=float),
++                            np.empty(axes[0].shape, dtype=float))
++                return [np.empty(axes[0].shape, dtype=float)
++                        for i in range(self.naxis)]
++
+             xy = np.hstack([x.reshape((x.size, 1)) for x in axes])
+ 
+             if ra_dec_order and sky == 'input':
+@@ -1235,6 +1244,12 @@ reduce these to 2 dimensions using the naxis kwarg.
+                 raise ValueError(
+                     "When providing two arguments, the array must be "
+                     "of shape (N, {0})".format(self.naxis))
++            
++            # Handle empty arrays
++            if xy.shape[0] == 0:
++                # Return empty array with shape (0, naxis)
++                return np.empty((0, self.naxis), dtype=float)
++            
+             if ra_dec_order and sky == 'input':
+                 xy = self._denormalize_sky(xy)
+             result = func(xy, origin)
+diff --git a/debug_empty_arrays.py b/debug_empty_arrays.py
+new file mode 100644
+index 0000000000..048ce82f6e
+--- /dev/null
++++ b/debug_empty_arrays.py
+@@ -0,0 +1,26 @@
++#!/usr/bin/env python
++
++"""
++Debug script to understand what happens with empty arrays.
++"""
++
++import numpy as np
++
++# Simulate what happens in _return_list_of_arrays with empty arrays
++axes = [np.array([]), np.array([])]
++print(f"Original axes: {axes}")
++print(f"Axes shapes: {[x.shape for x in axes]}")
++
++# Broadcast arrays
++try:
++    axes = np.broadcast_arrays(*axes)
++    print(f"After broadcast: {axes}")
++    print(f"After broadcast shapes: {[x.shape for x in axes]}")
++except ValueError as e:
++    print(f"Broadcast error: {e}")
++
++# Create xy array like in the original code
++xy = np.hstack([x.reshape((x.size, 1)) for x in axes])
++print(f"xy array: {xy}")
++print(f"xy shape: {xy.shape}")
++print(f"xy size: {xy.size}")
+\ No newline at end of file
+diff --git a/debug_func_output.py b/debug_func_output.py
+new file mode 100644
+index 0000000000..f7eb79c000
+--- /dev/null
++++ b/debug_func_output.py
+@@ -0,0 +1,44 @@
++#!/usr/bin/env python
++
++"""
++Debug script to understand what func returns.
++"""
++
++import numpy as np
++from astropy.wcs import WCS
++
++# Create a simple WCS object for testing
++wcs = WCS(naxis=2)
++wcs.wcs.crpix = [1, 1]
++wcs.wcs.crval = [0, 0]
++wcs.wcs.cdelt = [1, 1]
++wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
++
++# Test the underlying function directly
++xy = np.array([[1, 1], [2, 2]])
++print(f"Input xy: {xy}")
++print(f"Input xy shape: {xy.shape}")
++
++# This is what the lambda function does: lambda xy, o: self.wcs.p2s(xy, o)['world']
++result = wcs.wcs.p2s(xy, 0)['world']
++print(f"Direct wcs.p2s result: {result}")
++print(f"Direct wcs.p2s result shape: {result.shape}")
++
++# Test with 3D WCS
++print("\nTesting with 3D WCS:")
++wcs3d = WCS(naxis=3)
++wcs3d.wcs.crpix = [1, 1, 1]
++wcs3d.wcs.crval = [0, 0, 0]
++wcs3d.wcs.cdelt = [1, 1, 1]
++wcs3d.wcs.ctype = ["RA---TAN", "DEC--TAN", "FREQ"]
++
++xy3d = np.array([[1, 1, 1], [2, 2, 2]])
++print(f"3D Input xy: {xy3d}")
++print(f"3D Input xy shape: {xy3d.shape}")
++
++result3d = wcs3d.wcs.p2s(xy3d, 0)['world']
++print(f"3D Direct wcs.p2s result: {result3d}")
++print(f"3D Direct wcs.p2s result shape: {result3d.shape}")
++
++print(f"WCS naxis: {wcs.naxis}")
++print(f"3D WCS naxis: {wcs3d.naxis}")
+\ No newline at end of file
+diff --git a/debug_output_structure.py b/debug_output_structure.py
+new file mode 100644
+index 0000000000..09286f4015
+--- /dev/null
++++ b/debug_output_structure.py
+@@ -0,0 +1,46 @@
++#!/usr/bin/env python
++
++"""
++Debug script to understand the output structure for non-empty arrays.
++"""
++
++import numpy as np
++from astropy.wcs import WCS
++
++# Create a simple WCS object for testing
++wcs = WCS(naxis=2)
++wcs.wcs.crpix = [1, 1]
++wcs.wcs.crval = [0, 0]
++wcs.wcs.cdelt = [1, 1]
++wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
++
++# Test with non-empty arrays
++print("Testing with non-empty arrays:")
++result = wcs.wcs_pix2world([1, 2], [1, 2], 0)
++print(f"Result: {result}")
++print(f"Result type: {type(result)}")
++print(f"Result length: {len(result)}")
++print(f"Result[0] type: {type(result[0])}")
++print(f"Result[0] shape: {result[0].shape}")
++print(f"Result[1] type: {type(result[1])}")
++print(f"Result[1] shape: {result[1].shape}")
++
++# Test with single element arrays
++print("\nTesting with single element arrays:")
++result = wcs.wcs_pix2world([1], [1], 0)
++print(f"Result: {result}")
++print(f"Result[0] shape: {result[0].shape}")
++print(f"Result[1] shape: {result[1].shape}")
++
++# Test with 3D WCS
++print("\nTesting with 3D WCS:")
++wcs3d = WCS(naxis=3)
++wcs3d.wcs.crpix = [1, 1, 1]
++wcs3d.wcs.crval = [0, 0, 0]
++wcs3d.wcs.cdelt = [1, 1, 1]
++wcs3d.wcs.ctype = ["RA---TAN", "DEC--TAN", "FREQ"]
++
++result = wcs3d.wcs_pix2world([1, 2], [1, 2], [1, 2], 0)
++print(f"3D Result: {result}")
++print(f"3D Result length: {len(result)}")
++print(f"3D Result shapes: {[r.shape for r in result]}")
+\ No newline at end of file
+diff --git a/debug_single_array.py b/debug_single_array.py
+new file mode 100644
+index 0000000000..5afad55a46
+--- /dev/null
++++ b/debug_single_array.py
+@@ -0,0 +1,33 @@
++#!/usr/bin/env python
++
++"""
++Debug script to test single array input with empty arrays.
++"""
++
++import numpy as np
++from astropy.wcs import WCS
++
++# Create a simple WCS object for testing
++wcs = WCS(naxis=2)
++wcs.wcs.crpix = [1, 1]
++wcs.wcs.crval = [0, 0]
++wcs.wcs.cdelt = [1, 1]
++wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
++
++# Test with single empty 2D array
++print("Testing with single empty 2D array:")
++try:
++    result = wcs.wcs_pix2world(np.empty((0, 2)), 0)
++    print(f"Success! Result: {result}")
++    print(f"Result shape: {result.shape}")
++except Exception as e:
++    print(f"Error: {e}")
++
++# Test with single non-empty 2D array (control)
++print("\nTesting with single non-empty 2D array:")
++try:
++    result = wcs.wcs_pix2world(np.array([[1, 1], [2, 2]]), 0)
++    print(f"Success! Result: {result}")
++    print(f"Result shape: {result.shape}")
++except Exception as e:
++    print(f"Error: {e}")
+\ No newline at end of file
+diff --git a/reproduce_error.py b/reproduce_error.py
+new file mode 100644
+index 0000000000..cb25b34285
+--- /dev/null
++++ b/reproduce_error.py
+@@ -0,0 +1,49 @@
++#!/usr/bin/env python
++
++"""
++Script to reproduce the empty array issue with WCS transformations.
++"""
++
++import numpy as np
++from astropy.wcs import WCS
++
++# Create a simple WCS object for testing
++wcs = WCS(naxis=2)
++wcs.wcs.crpix = [1, 1]
++wcs.wcs.crval = [0, 0]
++wcs.wcs.cdelt = [1, 1]
++wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
++
++print("Testing WCS transformations with empty arrays...")
++
++# Test case 1: Empty lists
++print("\nTest 1: Empty lists")
++try:
++    result = wcs.wcs_pix2world([], [], 0)
++    print(f"Success! Result: {result}")
++except Exception as e:
++    print(f"Error: {e}")
++
++# Test case 2: Empty numpy arrays
++print("\nTest 2: Empty numpy arrays")
++try:
++    result = wcs.wcs_pix2world(np.array([]), np.array([]), 0)
++    print(f"Success! Result: {result}")
++except Exception as e:
++    print(f"Error: {e}")
++
++# Test case 3: Single empty 2D array
++print("\nTest 3: Single empty 2D array")
++try:
++    result = wcs.wcs_pix2world(np.empty((0, 2)), 0)
++    print(f"Success! Result: {result}")
++except Exception as e:
++    print(f"Error: {e}")
++
++# Test case 4: Non-empty arrays (should work)
++print("\nTest 4: Non-empty arrays (control test)")
++try:
++    result = wcs.wcs_pix2world([1, 2], [1, 2], 0)
++    print(f"Success! Result: {result}")
++except Exception as e:
++    print(f"Error: {e}")
+\ No newline at end of file
+diff --git a/test_all_transformations.py b/test_all_transformations.py
+new file mode 100644
+index 0000000000..754be9547f
+--- /dev/null
++++ b/test_all_transformations.py
+@@ -0,0 +1,46 @@
++#!/usr/bin/env python
++
++"""
++Test script for all transformation methods with empty arrays.
++"""
++
++import numpy as np
++from astropy.wcs import WCS
++
++# Create a simple WCS object for testing
++wcs = WCS(naxis=2)
++wcs.wcs.crpix = [1, 1]
++wcs.wcs.crval = [0, 0]
++wcs.wcs.cdelt = [1, 1]
++wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
++
++# List of transformation methods to test
++methods = [
++    'wcs_pix2world',
++    'wcs_world2pix', 
++    'all_pix2world',
++    'all_world2pix'
++]
++
++print("Testing all transformation methods with empty arrays:")
++
++for method_name in methods:
++    print(f"\n{method_name}:")
++    try:
++        method = getattr(wcs, method_name)
++        result = method([], [], 0)
++        print(f"  Success! Result: {result}")
++        print(f"  Result shapes: {[r.shape for r in result]}")
++    except Exception as e:
++        print(f"  Error: {e}")
++
++# Test with single array format
++print("\nTesting single array format:")
++for method_name in methods:
++    print(f"\n{method_name} (single array):")
++    try:
++        method = getattr(wcs, method_name)
++        result = method(np.empty((0, 2)), 0)
++        print(f"  Success! Result shape: {result.shape}")
++    except Exception as e:
++        print(f"  Error: {e}")
+\ No newline at end of file
+diff --git a/test_edge_cases.py b/test_edge_cases.py
+new file mode 100644
+index 0000000000..7e33ad72ad
+--- /dev/null
++++ b/test_edge_cases.py
+@@ -0,0 +1,73 @@
++#!/usr/bin/env python
++
++"""
++Test script for edge cases with empty arrays.
++"""
++
++import numpy as np
++from astropy.wcs import WCS
++
++# Test with 2D WCS
++print("=== Testing 2D WCS ===")
++wcs2d = WCS(naxis=2)
++wcs2d.wcs.crpix = [1, 1]
++wcs2d.wcs.crval = [0, 0]
++wcs2d.wcs.cdelt = [1, 1]
++wcs2d.wcs.ctype = ["RA---TAN", "DEC--TAN"]
++
++# Test different transformation methods
++print("\n1. wcs_pix2world with empty lists:")
++result = wcs2d.wcs_pix2world([], [], 0)
++print(f"Result: {result}")
++print(f"Result types: {[type(r) for r in result]}")
++print(f"Result shapes: {[r.shape for r in result]}")
++
++print("\n2. all_pix2world with empty lists:")
++result = wcs2d.all_pix2world([], [], 0)
++print(f"Result: {result}")
++print(f"Result types: {[type(r) for r in result]}")
++print(f"Result shapes: {[r.shape for r in result]}")
++
++print("\n3. wcs_world2pix with empty lists:")
++result = wcs2d.wcs_world2pix([], [], 0)
++print(f"Result: {result}")
++print(f"Result types: {[type(r) for r in result]}")
++print(f"Result shapes: {[r.shape for r in result]}")
++
++# Test with 3D WCS
++print("\n=== Testing 3D WCS ===")
++wcs3d = WCS(naxis=3)
++wcs3d.wcs.crpix = [1, 1, 1]
++wcs3d.wcs.crval = [0, 0, 0]
++wcs3d.wcs.cdelt = [1, 1, 1]
++wcs3d.wcs.ctype = ["RA---TAN", "DEC--TAN", "FREQ"]
++
++print("\n4. wcs_pix2world with 3D empty lists:")
++result = wcs3d.wcs_pix2world([], [], [], 0)
++print(f"Result: {result}")
++print(f"Result length: {len(result)}")
++print(f"Result shapes: {[r.shape for r in result]}")
++
++print("\n5. Single empty 3D array:")
++result = wcs3d.wcs_pix2world(np.empty((0, 3)), 0)
++print(f"Result: {result}")
++print(f"Result shape: {result.shape}")
++
++# Test with 1D WCS
++print("\n=== Testing 1D WCS ===")
++wcs1d = WCS(naxis=1)
++wcs1d.wcs.crpix = [1]
++wcs1d.wcs.crval = [0]
++wcs1d.wcs.cdelt = [1]
++wcs1d.wcs.ctype = ["FREQ"]
++
++print("\n6. wcs_pix2world with 1D empty list:")
++result = wcs1d.wcs_pix2world([], 0)
++print(f"Result: {result}")
++print(f"Result length: {len(result)}")
++print(f"Result shapes: {[r.shape for r in result]}")
++
++print("\n7. Single empty 1D array:")
++result = wcs1d.wcs_pix2world(np.empty((0, 1)), 0)
++print(f"Result: {result}")
++print(f"Result shape: {result.shape}")
+\ No newline at end of file
+diff --git a/test_edge_cases_comprehensive.py b/test_edge_cases_comprehensive.py
+new file mode 100644
+index 0000000000..2a7951b6fb
+--- /dev/null
++++ b/test_edge_cases_comprehensive.py
+@@ -0,0 +1,96 @@
++#!/usr/bin/env python
++
++"""
++Comprehensive test for edge cases with empty arrays.
++"""
++
++import numpy as np
++from astropy.wcs import WCS
++
++def test_mixed_empty_non_empty():
++    """Test that we get proper error messages when mixing empty and non-empty arrays."""
++    
++    wcs = WCS(naxis=2)
++    wcs.wcs.crpix = [1, 1]
++    wcs.wcs.crval = [0, 0]
++    wcs.wcs.cdelt = [1, 1]
++    wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
++    
++    # This should fail with a broadcasting error
++    try:
++        result = wcs.wcs_pix2world([], [1, 2], 0)
++        print("ERROR: Should have failed with broadcasting error")
++    except ValueError as e:
++        print(f"Correctly caught broadcasting error: {e}")
++    
++    try:
++        result = wcs.wcs_pix2world([1, 2], [], 0)
++        print("ERROR: Should have failed with broadcasting error")
++    except ValueError as e:
++        print(f"Correctly caught broadcasting error: {e}")
++
++
++def test_different_empty_shapes():
++    """Test different ways to create empty arrays."""
++    
++    wcs = WCS(naxis=2)
++    wcs.wcs.crpix = [1, 1]
++    wcs.wcs.crval = [0, 0]
++    wcs.wcs.cdelt = [1, 1]
++    wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
++    
++    # Different ways to create empty arrays
++    empty_arrays = [
++        [],
++        np.array([]),
++        np.empty(0),
++        np.zeros(0),
++        np.ones(0),
++        np.array([], dtype=int),
++        np.array([], dtype=float),
++    ]
++    
++    for i, empty1 in enumerate(empty_arrays):
++        for j, empty2 in enumerate(empty_arrays):
++            print(f"Testing empty array types {i}, {j}")
++            result = wcs.wcs_pix2world(empty1, empty2, 0)
++            assert isinstance(result, list)
++            assert len(result) == 2
++            assert result[0].shape == (0,)
++            assert result[1].shape == (0,)
++            print(f"  Success!")
++
++
++def test_empty_arrays_different_shapes():
++    """Test single empty arrays with different shapes."""
++    
++    wcs = WCS(naxis=2)
++    wcs.wcs.crpix = [1, 1]
++    wcs.wcs.crval = [0, 0]
++    wcs.wcs.cdelt = [1, 1]
++    wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
++    
++    # Different ways to create empty 2D arrays
++    empty_2d_arrays = [
++        np.empty((0, 2)),
++        np.zeros((0, 2)),
++        np.ones((0, 2)),
++        np.array([]).reshape(0, 2),
++        np.array([], dtype=int).reshape(0, 2),
++        np.array([], dtype=float).reshape(0, 2),
++    ]
++    
++    for i, empty_array in enumerate(empty_2d_arrays):
++        print(f"Testing empty 2D array type {i}: shape={empty_array.shape}, dtype={empty_array.dtype}")
++        result = wcs.wcs_pix2world(empty_array, 0)
++        assert isinstance(result, np.ndarray)
++        assert result.shape == (0, 2)
++        assert result.dtype == float
++        print(f"  Success!")
++
++
++if __name__ == "__main__":
++    test_mixed_empty_non_empty()
++    test_different_empty_shapes()
++    test_empty_arrays_different_shapes()
++    print("All edge case tests passed!")
+\ No newline at end of file
+diff --git a/test_empty_arrays_fix.py b/test_empty_arrays_fix.py
+new file mode 100644
+index 0000000000..cabd1dc6b0
+--- /dev/null
++++ b/test_empty_arrays_fix.py
+@@ -0,0 +1,152 @@
++#!/usr/bin/env python
++
++"""
++Test script to verify the fix for empty arrays in WCS transformations.
++This test should be added to the official test suite.
++"""
++
++import numpy as np
++import pytest
++from astropy.wcs import WCS
++
++
++def test_empty_arrays_wcs_transformations():
++    """Test that WCS transformations handle empty arrays correctly."""
++    
++    # Create a simple 2D WCS object for testing
++    wcs = WCS(naxis=2)
++    wcs.wcs.crpix = [1, 1]
++    wcs.wcs.crval = [0, 0]
++    wcs.wcs.cdelt = [1, 1]
++    wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
++    
++    # Test list of empty arrays
++    result = wcs.wcs_pix2world([], [], 0)
++    assert isinstance(result, list)
++    assert len(result) == 2
++    assert isinstance(result[0], np.ndarray)
++    assert isinstance(result[1], np.ndarray)
++    assert result[0].shape == (0,)
++    assert result[1].shape == (0,)
++    assert result[0].dtype == float
++    assert result[1].dtype == float
++    
++    # Test numpy empty arrays
++    result = wcs.wcs_pix2world(np.array([]), np.array([]), 0)
++    assert isinstance(result, list)
++    assert len(result) == 2
++    assert result[0].shape == (0,)
++    assert result[1].shape == (0,)
++    
++    # Test single empty 2D array
++    result = wcs.wcs_pix2world(np.empty((0, 2)), 0)
++    assert isinstance(result, np.ndarray)
++    assert result.shape == (0, 2)
++    assert result.dtype == float
++    
++    # Test with ra_dec_order=True
++    result = wcs.wcs_pix2world([], [], 0, ra_dec_order=True)
++    assert isinstance(result, tuple)
++    assert len(result) == 2
++    assert result[0].shape == (0,)
++    assert result[1].shape == (0,)
++    
++    # Test with ra_dec_order=False
++    result = wcs.wcs_pix2world([], [], 0, ra_dec_order=False)
++    assert isinstance(result, list)
++    assert len(result) == 2
++    assert result[0].shape == (0,)
++    assert result[1].shape == (0,)
++
++
++def test_empty_arrays_3d_wcs():
++    """Test that 3D WCS transformations handle empty arrays correctly."""
++    
++    # Create a 3D WCS object
++    wcs = WCS(naxis=3)
++    wcs.wcs.crpix = [1, 1, 1]
++    wcs.wcs.crval = [0, 0, 0]
++    wcs.wcs.cdelt = [1, 1, 1]
++    wcs.wcs.ctype = ["RA---TAN", "DEC--TAN", "FREQ"]
++    
++    # Test list of empty arrays
++    result = wcs.wcs_pix2world([], [], [], 0)
++    assert isinstance(result, list)
++    assert len(result) == 3
++    for i in range(3):
++        assert isinstance(result[i], np.ndarray)
++        assert result[i].shape == (0,)
++        assert result[i].dtype == float
++    
++    # Test single empty 3D array
++    result = wcs.wcs_pix2world(np.empty((0, 3)), 0)
++    assert isinstance(result, np.ndarray)
++    assert result.shape == (0, 3)
++    assert result.dtype == float
++
++
++def test_empty_arrays_1d_wcs():
++    """Test that 1D WCS transformations handle empty arrays correctly."""
++    
++    # Create a 1D WCS object
++    wcs = WCS(naxis=1)
++    wcs.wcs.crpix = [1]
++    wcs.wcs.crval = [0]
++    wcs.wcs.cdelt = [1]
++    wcs.wcs.ctype = ["FREQ"]
++    
++    # Test list of empty arrays
++    result = wcs.wcs_pix2world([], 0)
++    assert isinstance(result, list)
++    assert len(result) == 1
++    assert isinstance(result[0], np.ndarray)
++    assert result[0].shape == (0,)
++    assert result[0].dtype == float
++    
++    # Test single empty 1D array
++    result = wcs.wcs_pix2world(np.empty((0, 1)), 0)
++    assert isinstance(result, np.ndarray)
++    assert result.shape == (0, 1)
++    assert result.dtype == float
++
++
++def test_empty_arrays_all_transformation_methods():
++    """Test that all WCS transformation methods handle empty arrays correctly."""
++    
++    # Create a simple 2D WCS object
++    wcs = WCS(naxis=2)
++    wcs.wcs.crpix = [1, 1]
++    wcs.wcs.crval = [0, 0]
++    wcs.wcs.cdelt = [1, 1]
++    wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
++    
++    # List of transformation methods to test
++    methods = [
++        'wcs_pix2world',
++        'wcs_world2pix', 
++        'all_pix2world',
++        'all_world2pix'
++    ]
++    
++    for method_name in methods:
++        method = getattr(wcs, method_name)
++        
++        # Test list format
++        result = method([], [], 0)
++        assert isinstance(result, list)
++        assert len(result) == 2
++        assert result[0].shape == (0,)
++        assert result[1].shape == (0,)
++        
++        # Test single array format
++        result = method(np.empty((0, 2)), 0)
++        assert isinstance(result, np.ndarray)
++        assert result.shape == (0, 2)
++
++
++if __name__ == "__main__":
++    test_empty_arrays_wcs_transformations()
++    test_empty_arrays_3d_wcs()
++    test_empty_arrays_1d_wcs()
++    test_empty_arrays_all_transformation_methods()
++    print("All tests passed!")
+\ No newline at end of file
+diff --git a/test_original_issue.py b/test_original_issue.py
+new file mode 100644
+index 0000000000..15b76f2d85
+--- /dev/null
++++ b/test_original_issue.py
+@@ -0,0 +1,28 @@
++#!/usr/bin/env python
++
++"""
++Test the original issue from the PR description.
++"""
++
++import numpy as np
++from astropy.wcs import WCS
++
++# Create a simple WCS object (we can't use the 2MASS_h.fits file from the example)
++wcs = WCS(naxis=2)
++wcs.wcs.crpix = [1, 1]
++wcs.wcs.crval = [0, 0]
++wcs.wcs.cdelt = [1, 1]
++wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
++
++print("Testing the original issue from the PR description...")
++
++# This was the failing case from the PR description
++try:
++    result = wcs.wcs_pix2world([], [], 0)
++    print(f"SUCCESS! Result: {result}")
++    print(f"Result type: {type(result)}")
++    print(f"Result shapes: {[r.shape for r in result]}")
++except Exception as e:
++    print(f"FAILED: {e}")
++
++print("\nThe issue has been fixed!")
+\ No newline at end of file
+diff --git a/test_ra_dec_order.py b/test_ra_dec_order.py
+new file mode 100644
+index 0000000000..bd2a49179c
+--- /dev/null
++++ b/test_ra_dec_order.py
+@@ -0,0 +1,60 @@
++#!/usr/bin/env python
++
++"""
++Test script for ra_dec_order parameter with empty arrays.
++"""
++
++import numpy as np
++from astropy.wcs import WCS
++
++# Create a simple WCS object for testing
++wcs = WCS(naxis=2)
++wcs.wcs.crpix = [1, 1]
++wcs.wcs.crval = [0, 0]
++wcs.wcs.cdelt = [1, 1]
++wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
++
++print("Testing ra_dec_order parameter with empty arrays:")
++
++# Test with ra_dec_order=True
++print("\n1. wcs_pix2world with ra_dec_order=True:")
++try:
++    result = wcs.wcs_pix2world([], [], 0, ra_dec_order=True)
++    print(f"  Success! Result: {result}")
++    print(f"  Result type: {type(result)}")
++    print(f"  Result length: {len(result)}")
++    print(f"  Result shapes: {[r.shape for r in result]}")
++except Exception as e:
++    print(f"  Error: {e}")
++
++# Test with ra_dec_order=False (default)
++print("\n2. wcs_pix2world with ra_dec_order=False:")
++try:
++    result = wcs.wcs_pix2world([], [], 0, ra_dec_order=False)
++    print(f"  Success! Result: {result}")
++    print(f"  Result type: {type(result)}")
++    print(f"  Result length: {len(result)}")
++    print(f"  Result shapes: {[r.shape for r in result]}")
++except Exception as e:
++    print(f"  Error: {e}")
++
++# Test with non-empty arrays for comparison
++print("\n3. wcs_pix2world with ra_dec_order=True (non-empty):")
++try:
++    result = wcs.wcs_pix2world([1, 2], [1, 2], 0, ra_dec_order=True)
++    print(f"  Success! Result: {result}")
++    print(f"  Result type: {type(result)}")
++    print(f"  Result length: {len(result)}")
++    print(f"  Result shapes: {[r.shape for r in result]}")
++except Exception as e:
++    print(f"  Error: {e}")
++
++print("\n4. wcs_pix2world with ra_dec_order=False (non-empty):")
++try:
++    result = wcs.wcs_pix2world([1, 2], [1, 2], 0, ra_dec_order=False)
++    print(f"  Success! Result: {result}")
++    print(f"  Result type: {type(result)}")
++    print(f"  Result length: {len(result)}")
++    print(f"  Result shapes: {[r.shape for r in result]}")
++except Exception as e:
++    print(f"  Error: {e}")
+\ No newline at end of file
+diff --git a/test_single_array_output.py b/test_single_array_output.py
+new file mode 100644
+index 0000000000..4baae1cd20
+--- /dev/null
++++ b/test_single_array_output.py
+@@ -0,0 +1,29 @@
++#!/usr/bin/env python
++
++"""
++Test script to check single array output format.
++"""
++
++import numpy as np
++from astropy.wcs import WCS
++
++# Create a simple WCS object for testing
++wcs = WCS(naxis=2)
++wcs.wcs.crpix = [1, 1]
++wcs.wcs.crval = [0, 0]
++wcs.wcs.cdelt = [1, 1]
++wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
++
++# Test with single non-empty 2D array
++print("Testing with single non-empty 2D array:")
++result = wcs.wcs_pix2world(np.array([[1, 1], [2, 2]]), 0)
++print(f"Result: {result}")
++print(f"Result type: {type(result)}")
++print(f"Result shape: {result.shape}")
++
++# Test with single empty 2D array
++print("\nTesting with single empty 2D array:")
++result = wcs.wcs_pix2world(np.empty((0, 2)), 0)
++print(f"Result: {result}")
++print(f"Result type: {type(result)}")
++print(f"Result shape: {result.shape}")
+\ No newline at end of file

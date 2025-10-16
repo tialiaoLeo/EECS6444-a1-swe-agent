@@ -1,0 +1,13 @@
+diff --git a/tests/missing_colon.py b/tests/missing_colon.py
+index 20edef5..5857437 100755
+--- a/tests/missing_colon.py
++++ b/tests/missing_colon.py
+@@ -1,7 +1,7 @@
+ #!/usr/bin/env python3
+ 
+ 
+-def division(a: float, b: float) -> float
++def division(a: float, b: float) -> float:
+     return a/b
+ 
+ 

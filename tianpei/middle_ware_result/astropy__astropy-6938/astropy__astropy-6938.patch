@@ -1,0 +1,360 @@
+diff --git a/reproduce_issue.py b/reproduce_issue.py
+new file mode 100644
+index 0000000000..56ca78c110
+--- /dev/null
++++ b/reproduce_issue.py
+@@ -0,0 +1,87 @@
++#!/usr/bin/env python3
++
++"""
++Script to reproduce the D exponent issue in astropy.io.fits
++"""
++
++import numpy as np
++from astropy.io import fits
++from astropy.table import Table
++import tempfile
++import os
++
++def test_d_exponent_issue():
++    """Test the D exponent replacement issue"""
++    
++    # Create test data with scientific notation that should use D exponents
++    data = np.array([1.23e-10, 4.56e+15, 7.89e-5])
++    
++    # Create a table with a column that should use D format
++    t = Table()
++    t['values'] = data
++    
++    # Create a temporary FITS file
++    with tempfile.NamedTemporaryFile(suffix='.fits', delete=False) as tmp:
++        tmp_filename = tmp.name
++    
++    try:
++        # Write as ASCII table with D format
++        # First, let's create a FITS table manually to control the format
++        col = fits.Column(name='values', format='D25.16', array=data)
++        hdu = fits.BinTableHDU.from_columns([col])
++        
++        # Write to file
++        hdu.writeto(tmp_filename, overwrite=True)
++        
++        # Read it back
++        with fits.open(tmp_filename) as hdul:
++            table_data = hdul[1].data
++            print("Original data:", data)
++            print("Read back data:", table_data['values'])
++            
++        # Now let's test the ASCII table case which is where the bug occurs
++        # Create an ASCII table HDU
++        ascii_col = fits.Column(name='values', format='D25.16', array=data)
++        ascii_hdu = fits.TableHDU.from_columns([ascii_col])
++        
++        # Write ASCII table
++        ascii_filename = tmp_filename.replace('.fits', '_ascii.fits')
++        ascii_hdu.writeto(ascii_filename, overwrite=True)
++        
++        # Read back ASCII table
++        with fits.open(ascii_filename) as hdul:
++            ascii_data = hdul[1].data
++            print("ASCII table data:", ascii_data['values'])
++            
++        # Clean up
++        os.unlink(ascii_filename)
++        
++    finally:
++        # Clean up
++        if os.path.exists(tmp_filename):
++            os.unlink(tmp_filename)
++
++def test_chararray_replace():
++    """Test the specific issue with chararray.replace()"""
++    
++    # Create a chararray similar to what would be used in FITS
++    from numpy import char as chararray
++    
++    # Create a test array with E notation
++    test_array = chararray.array(['1.23E-10', '4.56E+15', '7.89E-05'])
++    print("Original array:", test_array)
++    
++    # This is the buggy code - replace doesn't modify in-place
++    result = test_array.replace('E', 'D')  # This returns a new array
++    print("Result of replace (not assigned):", result)
++    print("Original array after replace call:", test_array)  # Should be unchanged
++    
++    # This is the correct way
++    test_array_fixed = test_array.replace('E', 'D')
++    print("Correctly assigned result:", test_array_fixed)
++
++if __name__ == '__main__':
++    print("Testing D exponent issue...")
++    test_d_exponent_issue()
++    print("\nTesting chararray replace behavior...")
++    test_chararray_replace()
+\ No newline at end of file
+diff --git a/simple_test.py b/simple_test.py
+new file mode 100644
+index 0000000000..6a24ee8c55
+--- /dev/null
++++ b/simple_test.py
+@@ -0,0 +1,37 @@
++#!/usr/bin/env python3
++
++"""
++Simple test to verify the chararray replace issue
++"""
++
++import numpy as np
++from numpy import char as chararray
++from astropy.io.fits.util import encode_ascii
++
++def test_replace_issue():
++    """Test the replace issue with chararray"""
++    
++    # Create a chararray like the one used in FITS
++    output_field = chararray.array(['1.23E-10', '4.56E+15'])
++    print("Before replace:", output_field)
++    print("output_field dtype:", output_field.dtype)
++    print("encode_ascii('E'):", encode_ascii('E'), type(encode_ascii('E')))
++    
++    # Test with string arguments first
++    result1 = output_field.replace('E', 'D')
++    print("Replace with strings:", result1)
++    
++    # This is the buggy line from the original code
++    # It doesn't assign the result back to output_field
++    try:
++        output_field.replace(encode_ascii('E'), encode_ascii('D'))
++        print("After buggy replace (no assignment):", output_field)
++    except Exception as e:
++        print("Error with encode_ascii:", e)
++        
++    # Let's try with the correct approach but using strings
++    output_field = output_field.replace('E', 'D')
++    print("After correct replace (with assignment):", output_field)
++
++if __name__ == '__main__':
++    test_replace_issue()
+\ No newline at end of file
+diff --git a/test_d_exponent_bug.py b/test_d_exponent_bug.py
+new file mode 100644
+index 0000000000..2ca9fd3ea6
+--- /dev/null
++++ b/test_d_exponent_bug.py
+@@ -0,0 +1,86 @@
++#!/usr/bin/env python3
++
++"""
++Test script to demonstrate the D exponent bug in FITS ASCII tables
++"""
++
++import numpy as np
++from astropy.io import fits
++import tempfile
++import os
++
++def test_ascii_table_d_format():
++    """Test D format in ASCII tables"""
++    
++    # Create test data with values that will use scientific notation
++    data = np.array([1.23e-10, 4.56e+15, 7.89e-5])
++    
++    # Create an ASCII table with D format
++    col = fits.Column(name='values', format='D25.16', array=data)
++    
++    # Create ASCII table HDU
++    hdu = fits.TableHDU.from_columns([col])
++    
++    # Create a temporary file
++    with tempfile.NamedTemporaryFile(suffix='.fits', delete=False) as tmp:
++        tmp_filename = tmp.name
++    
++    try:
++        # Write the table
++        hdu.writeto(tmp_filename, overwrite=True)
++        
++        # Read the raw file content to see what's actually written
++        with open(tmp_filename, 'rb') as f:
++            content = f.read()
++            
++        # Look for E or D in the scientific notation
++        content_str = content.decode('ascii', errors='ignore')
++        print("File content contains 'E':", 'E' in content_str)
++        print("File content contains 'D':", 'D' in content_str)
++        
++        # Find lines with scientific notation
++        lines = content_str.split('\n')
++        for i, line in enumerate(lines):
++            if 'E' in line or 'D' in line:
++                print(f"Line {i}: {line}")
++        
++        # Read back the data
++        with fits.open(tmp_filename) as hdul:
++            read_data = hdul[1].data
++            print("Original data:", data)
++            print("Read back data:", read_data['values'])
++            
++    finally:
++        if os.path.exists(tmp_filename):
++            os.unlink(tmp_filename)
++
++def test_scale_back_ascii_directly():
++    """Test the _scale_back_ascii method directly"""
++    
++    # Create a simple FITS record to test with
++    data = np.array([1.23e-10, 4.56e+15])
++    col = fits.Column(name='values', format='D25.16', array=data)
++    hdu = fits.TableHDU.from_columns([col])
++    
++    # Get the FITS_rec object
++    fits_rec = hdu.data
++    
++    # Create a mock output field (chararray)
++    from numpy import char as chararray
++    output_field = chararray.array(['  1.2300000000000000E-10', '  4.5600000000000000E+15'])
++    
++    print("Before _scale_back_ascii:")
++    print("output_field:", output_field)
++    
++    # Call the method that has the bug
++    fits_rec._scale_back_ascii(0, data, output_field)
++    
++    print("After _scale_back_ascii:")
++    print("output_field:", output_field)
++    print("Should contain 'D' but probably still contains 'E'")
++
++if __name__ == '__main__':
++    print("Testing ASCII table D format...")
++    test_ascii_table_d_format()
++    print("\nTesting _scale_back_ascii directly...")
++    test_scale_back_ascii_directly()
+\ No newline at end of file
+diff --git a/test_d_format_bug.py b/test_d_format_bug.py
+new file mode 100644
+index 0000000000..8ff4774c6f
+--- /dev/null
++++ b/test_d_format_bug.py
+@@ -0,0 +1,122 @@
++#!/usr/bin/env python3
++
++"""
++Test to demonstrate and verify the fix for the D exponent bug in ASCII tables
++"""
++
++import numpy as np
++from astropy.io import fits
++import tempfile
++import os
++
++def test_d_format_ascii_table():
++    """Test that D format in ASCII tables correctly uses D exponents"""
++    
++    # Create test data with values that will use scientific notation
++    data = np.array([1.23e-10, 4.56e+15, 7.89e-5, 0.0, 1.0])
++    
++    # Create an ASCII table with D format
++    col = fits.Column(name='values', format='D25.16', array=data)
++    
++    # Create ASCII table HDU
++    hdu = fits.TableHDU.from_columns([col])
++    
++    # Create a temporary file
++    with tempfile.NamedTemporaryFile(suffix='.fits', delete=False) as tmp:
++        tmp_filename = tmp.name
++    
++    try:
++        # Write the table
++        hdu.writeto(tmp_filename, overwrite=True)
++        
++        # Read the raw file content to see what's actually written
++        with open(tmp_filename, 'rb') as f:
++            content = f.read()
++            
++        # Look for E or D in the scientific notation
++        content_str = content.decode('ascii', errors='ignore')
++        
++        # Count occurrences of E and D in scientific notation context
++        # We need to be careful to only count E/D that are part of exponents
++        import re
++        
++        # Pattern to match scientific notation: number followed by E or D and optional +/- and digits
++        e_pattern = r'\d+\.?\d*E[+-]?\d+'
++        d_pattern = r'\d+\.?\d*D[+-]?\d+'
++        
++        e_matches = re.findall(e_pattern, content_str)
++        d_matches = re.findall(d_pattern, content_str)
++        
++        print(f"Found {len(e_matches)} E exponents: {e_matches}")
++        print(f"Found {len(d_matches)} D exponents: {d_matches}")
++        
++        # For D format, we should have D exponents, not E exponents
++        # (at least for the data values, not counting any header keywords)
++        
++        # Read back the data to make sure it's still correct
++        with fits.open(tmp_filename) as hdul:
++            read_data = hdul[1].data
++            print("Original data:", data)
++            print("Read back data:", read_data['values'])
++            
++            # Check that the data is correctly read back
++            np.testing.assert_array_almost_equal(data, read_data['values'])
++            
++        return len(e_matches), len(d_matches)
++            
++    finally:
++        if os.path.exists(tmp_filename):
++            os.unlink(tmp_filename)
++
++def test_scale_back_ascii_bug():
++    """Test the specific _scale_back_ascii bug"""
++    
++    # Create test data
++    data = np.array([1.23e-10, 4.56e+15])
++    col = fits.Column(name='values', format='D25.16', array=data)
++    hdu = fits.TableHDU.from_columns([col])
++    
++    # Get the FITS_rec object
++    fits_rec = hdu.data
++    
++    # Create a mock output field (chararray) like what would be used
++    from numpy import char as chararray
++    output_field = chararray.array(['  1.2300000000000000E-10', '  4.5600000000000000E+15'])
++    
++    print("Before _scale_back_ascii:")
++    print("output_field:", output_field)
++    
++    # This should demonstrate the bug - the E should be replaced with D but won't be
++    # because the result isn't assigned back
++    fits_rec._scale_back_ascii(0, data, output_field)
++    
++    print("After _scale_back_ascii (buggy version):")
++    print("output_field:", output_field)
++    
++    # Check if the E was replaced with D
++    has_e = any('E' in str(item) for item in output_field)
++    has_d = any('D' in str(item) for item in output_field)
++    
++    print(f"Contains E: {has_e}")
++    print(f"Contains D: {has_d}")
++    
++    return has_e, has_d
++
++if __name__ == '__main__':
++    print("Testing D format in ASCII tables...")
++    e_count, d_count = test_d_format_ascii_table()
++    
++    print(f"\nFile contains {e_count} E exponents and {d_count} D exponents")
++    
++    print("\nTesting _scale_back_ascii bug directly...")
++    try:
++        has_e, has_d = test_scale_back_ascii_bug()
++        print(f"After _scale_back_ascii: has_e={has_e}, has_d={has_d}")
++        if has_e and not has_d:
++            print("BUG CONFIRMED: E exponents were not replaced with D exponents")
++        elif has_d and not has_e:
++            print("FIXED: E exponents were correctly replaced with D exponents")
++        else:
++            print("UNCLEAR: Mixed or unexpected results")
++    except Exception as e:
++        print(f"Error in _scale_back_ascii test: {e}")
+\ No newline at end of file

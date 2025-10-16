@@ -1,0 +1,285 @@
+2025-10-09 22:35:28,819 - INFO - swea-run - Starting run. Find output files at /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-2.00___swe_bench_lite_dev
+2025-10-09 22:35:28,823 - INFO - swea-run - Running on instance pylint-dev__astroid-1978
+2025-10-09 22:35:45,388 - ERROR - swea-run - Traceback (most recent call last):
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 143, in _pull_image
+    _pull_image(self._config.image, self._config.container_runtime)
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 42, in _pull_image
+    raise subprocess.CalledProcessError(e.returncode, e.cmd, e.output, e.stderr) from None
+subprocess.CalledProcessError: Command '['docker', 'pull', 'docker.io/swebench/sweb.eval.x86_64.pylint-dev_1776_astroid-1978:latest']' returned non-zero exit status 130.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/run/run_batch.py", line 311, in run_instance
+    result = self._run_instance(instance)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/run/run_batch.py", line 358, in _run_instance
+    env.start()
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/environment/swe_env.py", line 111, in start
+    self._init_deployment()
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/environment/swe_env.py", line 183, in _init_deployment
+    asyncio.run(self.deployment.start())
+  File "/usr/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 232, in start
+    self._pull_image()
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 148, in _pull_image
+    raise DockerPullError(msg) from e
+swerex.exceptions.DockerPullError: Failed to pull image docker.io/swebench/sweb.eval.x86_64.pylint-dev_1776_astroid-1978:latest. Error: Output: latest: Pulling from swebench/sweb.eval.x86_64.pylint-dev_1776_astroid-1978
+9cb31e2e37ea: Pulling fs layer
+400078b4a384: Pulling fs layer
+b1f363631ad2: Pulling fs layer
+37c0c8bc662c: Pulling fs layer
+4a4599d6cad2: Pulling fs layer
+cdee707f1783: Pulling fs layer
+01a78fc5a086: Pulling fs layer
+262a733e1c60: Pulling fs layer
+4581a2c2e603: Pulling fs layer
+95f785fabf87: Pulling fs layer
+416ff2dde93b: Pulling fs layer
+b2420ef8d091: Pulling fs layer
+8d569216ea67: Pulling fs layer
+e372992f2de4: Pulling fs layer
+4a4599d6cad2: Waiting
+cdee707f1783: Waiting
+01a78fc5a086: Waiting
+262a733e1c60: Waiting
+4581a2c2e603: Waiting
+95f785fabf87: Waiting
+416ff2dde93b: Waiting
+b2420ef8d091: Waiting
+8d569216ea67: Waiting
+e372992f2de4: Waiting
+37c0c8bc662c: Waiting
+9cb31e2e37ea: Verifying Checksum
+9cb31e2e37ea: Download complete
+37c0c8bc662c: Verifying Checksum
+37c0c8bc662c: Download complete
+4a4599d6cad2: Download complete
+cdee707f1783: Verifying Checksum
+cdee707f1783: Download complete
+01a78fc5a086: Download complete
+262a733e1c60: Verifying Checksum
+262a733e1c60: Download complete
+
+
+2025-10-09 22:35:45,396 - ERROR - swea-run - ❌ Failed on pylint-dev__astroid-1978: Failed to pull image docker.io/swebench/sweb.eval.x86_64.pylint-dev_1776_astroid-1978:latest. Error: Output: latest: Pulling from swebench/sweb.eval.x86_64.pylint-dev_1776_astroid-1978
+9cb31e2e37ea: Pulling fs layer
+400078b4a384: Pulling fs layer
+b1f363631ad2: Pulling fs layer
+37c0c8bc662c: Pulling fs layer
+4a4599d6cad2: Pulling fs layer
+cdee707f1783: Pulling fs layer
+01a78fc5a086: Pulling fs layer
+262a733e1c60: Pulling fs layer
+4581a2c2e603: Pulling fs layer
+95f785fabf87: Pulling fs layer
+416ff2dde93b: Pulling fs layer
+b2420ef8d091: Pulling fs layer
+8d569216ea67: Pulling fs layer
+e372992f2de4: Pulling fs layer
+4a4599d6cad2: Waiting
+cdee707f1783: Waiting
+01a78fc5a086: Waiting
+262a733e1c60: Waiting
+4581a2c2e603: Waiting
+95f785fabf87: Waiting
+416ff2dde93b: Waiting
+b2420ef8d091: Waiting
+8d569216ea67: Waiting
+e372992f2de4: Waiting
+37c0c8bc662c: Waiting
+9cb31e2e37ea: Verifying Checksum
+9cb31e2e37ea: Download complete
+37c0c8bc662c: Verifying Checksum
+37c0c8bc662c: Download complete
+4a4599d6cad2: Download complete
+cdee707f1783: Verifying Checksum
+cdee707f1783: Download complete
+01a78fc5a086: Download complete
+262a733e1c60: Verifying Checksum
+262a733e1c60: Download complete
+
+2025-10-09 22:35:45,401 - INFO - swea-run - Running on instance pylint-dev__astroid-1866
+2025-10-09 22:35:47,550 - ERROR - swea-run - Traceback (most recent call last):
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 143, in _pull_image
+    _pull_image(self._config.image, self._config.container_runtime)
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 42, in _pull_image
+    raise subprocess.CalledProcessError(e.returncode, e.cmd, e.output, e.stderr) from None
+subprocess.CalledProcessError: Command '['docker', 'pull', 'docker.io/swebench/sweb.eval.x86_64.pylint-dev_1776_astroid-1866:latest']' returned non-zero exit status 130.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/run/run_batch.py", line 311, in run_instance
+    result = self._run_instance(instance)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/run/run_batch.py", line 358, in _run_instance
+    env.start()
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/environment/swe_env.py", line 111, in start
+    self._init_deployment()
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/environment/swe_env.py", line 183, in _init_deployment
+    asyncio.run(self.deployment.start())
+  File "/usr/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 232, in start
+    self._pull_image()
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 148, in _pull_image
+    raise DockerPullError(msg) from e
+swerex.exceptions.DockerPullError: Failed to pull image docker.io/swebench/sweb.eval.x86_64.pylint-dev_1776_astroid-1866:latest. Error: Output: latest: Pulling from swebench/sweb.eval.x86_64.pylint-dev_1776_astroid-1866
+9cb31e2e37ea: Pulling fs layer
+400078b4a384: Pulling fs layer
+b1f363631ad2: Pulling fs layer
+37c0c8bc662c: Pulling fs layer
+4a4599d6cad2: Pulling fs layer
+cdee707f1783: Pulling fs layer
+01a78fc5a086: Pulling fs layer
+262a733e1c60: Pulling fs layer
+4581a2c2e603: Pulling fs layer
+95f785fabf87: Pulling fs layer
+416ff2dde93b: Pulling fs layer
+315dd959819a: Pulling fs layer
+60c7d3a14207: Pulling fs layer
+262a733e1c60: Waiting
+01a78fc5a086: Waiting
+4581a2c2e603: Waiting
+95f785fabf87: Waiting
+4a4599d6cad2: Waiting
+416ff2dde93b: Waiting
+315dd959819a: Waiting
+cdee707f1783: Waiting
+60c7d3a14207: Waiting
+37c0c8bc662c: Waiting
+
+
+2025-10-09 22:35:47,559 - ERROR - swea-run - ❌ Failed on pylint-dev__astroid-1866: Failed to pull image docker.io/swebench/sweb.eval.x86_64.pylint-dev_1776_astroid-1866:latest. Error: Output: latest: Pulling from swebench/sweb.eval.x86_64.pylint-dev_1776_astroid-1866
+9cb31e2e37ea: Pulling fs layer
+400078b4a384: Pulling fs layer
+b1f363631ad2: Pulling fs layer
+37c0c8bc662c: Pulling fs layer
+4a4599d6cad2: Pulling fs layer
+cdee707f1783: Pulling fs layer
+01a78fc5a086: Pulling fs layer
+262a733e1c60: Pulling fs layer
+4581a2c2e603: Pulling fs layer
+95f785fabf87: Pulling fs layer
+416ff2dde93b: Pulling fs layer
+315dd959819a: Pulling fs layer
+60c7d3a14207: Pulling fs layer
+262a733e1c60: Waiting
+01a78fc5a086: Waiting
+4581a2c2e603: Waiting
+95f785fabf87: Waiting
+4a4599d6cad2: Waiting
+416ff2dde93b: Waiting
+315dd959819a: Waiting
+cdee707f1783: Waiting
+60c7d3a14207: Waiting
+37c0c8bc662c: Waiting
+
+2025-10-09 22:35:47,564 - INFO - swea-run - Running on instance pvlib__pvlib-python-1072
+2025-10-09 22:35:48,413 - ERROR - swea-run - Traceback (most recent call last):
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 143, in _pull_image
+    _pull_image(self._config.image, self._config.container_runtime)
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 42, in _pull_image
+    raise subprocess.CalledProcessError(e.returncode, e.cmd, e.output, e.stderr) from None
+subprocess.CalledProcessError: Command '['docker', 'pull', 'docker.io/swebench/sweb.eval.x86_64.pvlib_1776_pvlib-python-1072:latest']' returned non-zero exit status 130.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/run/run_batch.py", line 311, in run_instance
+    result = self._run_instance(instance)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/run/run_batch.py", line 358, in _run_instance
+    env.start()
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/environment/swe_env.py", line 111, in start
+    self._init_deployment()
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/environment/swe_env.py", line 183, in _init_deployment
+    asyncio.run(self.deployment.start())
+  File "/usr/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 232, in start
+    self._pull_image()
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 148, in _pull_image
+    raise DockerPullError(msg) from e
+swerex.exceptions.DockerPullError: Failed to pull image docker.io/swebench/sweb.eval.x86_64.pvlib_1776_pvlib-python-1072:latest. Error: Output: latest: Pulling from swebench/sweb.eval.x86_64.pvlib_1776_pvlib-python-1072
+9cb31e2e37ea: Pulling fs layer
+400078b4a384: Pulling fs layer
+b1f363631ad2: Pulling fs layer
+37c0c8bc662c: Pulling fs layer
+4a4599d6cad2: Pulling fs layer
+cdee707f1783: Pulling fs layer
+95f4a75e636d: Pulling fs layer
+910eab75a380: Pulling fs layer
+0b7cca98a7fa: Pulling fs layer
+e5fa05027ad8: Pulling fs layer
+97f49a2da3c0: Pulling fs layer
+1c1bafed072c: Pulling fs layer
+cfc1624ab6fb: Pulling fs layer
+0ae1e82a9bd1: Pulling fs layer
+7d3e1be31431: Pulling fs layer
+37c0c8bc662c: Waiting
+4a4599d6cad2: Waiting
+cdee707f1783: Waiting
+95f4a75e636d: Waiting
+e5fa05027ad8: Waiting
+97f49a2da3c0: Waiting
+1c1bafed072c: Waiting
+cfc1624ab6fb: Waiting
+0ae1e82a9bd1: Waiting
+7d3e1be31431: Waiting
+910eab75a380: Waiting
+0b7cca98a7fa: Waiting
+
+
+2025-10-09 22:35:48,420 - ERROR - swea-run - ❌ Failed on pvlib__pvlib-python-1072: Failed to pull image docker.io/swebench/sweb.eval.x86_64.pvlib_1776_pvlib-python-1072:latest. Error: Output: latest: Pulling from swebench/sweb.eval.x86_64.pvlib_1776_pvlib-python-1072
+9cb31e2e37ea: Pulling fs layer
+400078b4a384: Pulling fs layer
+b1f363631ad2: Pulling fs layer
+37c0c8bc662c: Pulling fs layer
+4a4599d6cad2: Pulling fs layer
+cdee707f1783: Pulling fs layer
+95f4a75e636d: Pulling fs layer
+910eab75a380: Pulling fs layer
+0b7cca98a7fa: Pulling fs layer
+e5fa05027ad8: Pulling fs layer
+97f49a2da3c0: Pulling fs layer
+1c1bafed072c: Pulling fs layer
+cfc1624ab6fb: Pulling fs layer
+0ae1e82a9bd1: Pulling fs layer
+7d3e1be31431: Pulling fs layer
+37c0c8bc662c: Waiting
+4a4599d6cad2: Waiting
+cdee707f1783: Waiting
+95f4a75e636d: Waiting
+e5fa05027ad8: Waiting
+97f49a2da3c0: Waiting
+1c1bafed072c: Waiting
+cfc1624ab6fb: Waiting
+0ae1e82a9bd1: Waiting
+7d3e1be31431: Waiting
+910eab75a380: Waiting
+0b7cca98a7fa: Waiting
+

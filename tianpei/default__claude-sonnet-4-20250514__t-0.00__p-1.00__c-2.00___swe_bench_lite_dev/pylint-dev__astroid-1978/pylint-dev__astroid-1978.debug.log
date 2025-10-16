@@ -1,0 +1,177 @@
+2025-10-09 22:35:28,828 - WARNING - swea-lm - Claude 3.7/4 models do not support 128k context by default. Setting max output tokens to 64k. To enable 128k context, please set the completion_kwargs to {'extra_headers': {'anthropic-beta': 'output-128k-2025-02-19'}}.
+2025-10-09 22:35:28,905 - INFO - rex-deploy - Pulling image 'docker.io/swebench/sweb.eval.x86_64.pylint-dev_1776_astroid-1978:latest'
+2025-10-09 22:35:45,377 - ERROR - swea-agent - Traceback (most recent call last):
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 143, in _pull_image
+    _pull_image(self._config.image, self._config.container_runtime)
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 42, in _pull_image
+    raise subprocess.CalledProcessError(e.returncode, e.cmd, e.output, e.stderr) from None
+subprocess.CalledProcessError: Command '['docker', 'pull', 'docker.io/swebench/sweb.eval.x86_64.pylint-dev_1776_astroid-1978:latest']' returned non-zero exit status 130.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/run/run_batch.py", line 358, in _run_instance
+    env.start()
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/environment/swe_env.py", line 111, in start
+    self._init_deployment()
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/environment/swe_env.py", line 183, in _init_deployment
+    asyncio.run(self.deployment.start())
+  File "/usr/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 232, in start
+    self._pull_image()
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 148, in _pull_image
+    raise DockerPullError(msg) from e
+swerex.exceptions.DockerPullError: Failed to pull image docker.io/swebench/sweb.eval.x86_64.pylint-dev_1776_astroid-1978:latest. Error: Output: latest: Pulling from swebench/sweb.eval.x86_64.pylint-dev_1776_astroid-1978
+9cb31e2e37ea: Pulling fs layer
+400078b4a384: Pulling fs layer
+b1f363631ad2: Pulling fs layer
+37c0c8bc662c: Pulling fs layer
+4a4599d6cad2: Pulling fs layer
+cdee707f1783: Pulling fs layer
+01a78fc5a086: Pulling fs layer
+262a733e1c60: Pulling fs layer
+4581a2c2e603: Pulling fs layer
+95f785fabf87: Pulling fs layer
+416ff2dde93b: Pulling fs layer
+b2420ef8d091: Pulling fs layer
+8d569216ea67: Pulling fs layer
+e372992f2de4: Pulling fs layer
+4a4599d6cad2: Waiting
+cdee707f1783: Waiting
+01a78fc5a086: Waiting
+262a733e1c60: Waiting
+4581a2c2e603: Waiting
+95f785fabf87: Waiting
+416ff2dde93b: Waiting
+b2420ef8d091: Waiting
+8d569216ea67: Waiting
+e372992f2de4: Waiting
+37c0c8bc662c: Waiting
+9cb31e2e37ea: Verifying Checksum
+9cb31e2e37ea: Download complete
+37c0c8bc662c: Verifying Checksum
+37c0c8bc662c: Download complete
+4a4599d6cad2: Download complete
+cdee707f1783: Verifying Checksum
+cdee707f1783: Download complete
+01a78fc5a086: Download complete
+262a733e1c60: Verifying Checksum
+262a733e1c60: Download complete
+
+
+2025-10-09 22:35:45,385 - INFO - swea-env - Beginning environment shutdown...
+2025-10-09 22:35:45,388 - ERROR - swea-run - Traceback (most recent call last):
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 143, in _pull_image
+    _pull_image(self._config.image, self._config.container_runtime)
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 42, in _pull_image
+    raise subprocess.CalledProcessError(e.returncode, e.cmd, e.output, e.stderr) from None
+subprocess.CalledProcessError: Command '['docker', 'pull', 'docker.io/swebench/sweb.eval.x86_64.pylint-dev_1776_astroid-1978:latest']' returned non-zero exit status 130.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/run/run_batch.py", line 311, in run_instance
+    result = self._run_instance(instance)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/run/run_batch.py", line 358, in _run_instance
+    env.start()
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/environment/swe_env.py", line 111, in start
+    self._init_deployment()
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/environment/swe_env.py", line 183, in _init_deployment
+    asyncio.run(self.deployment.start())
+  File "/usr/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 232, in start
+    self._pull_image()
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 148, in _pull_image
+    raise DockerPullError(msg) from e
+swerex.exceptions.DockerPullError: Failed to pull image docker.io/swebench/sweb.eval.x86_64.pylint-dev_1776_astroid-1978:latest. Error: Output: latest: Pulling from swebench/sweb.eval.x86_64.pylint-dev_1776_astroid-1978
+9cb31e2e37ea: Pulling fs layer
+400078b4a384: Pulling fs layer
+b1f363631ad2: Pulling fs layer
+37c0c8bc662c: Pulling fs layer
+4a4599d6cad2: Pulling fs layer
+cdee707f1783: Pulling fs layer
+01a78fc5a086: Pulling fs layer
+262a733e1c60: Pulling fs layer
+4581a2c2e603: Pulling fs layer
+95f785fabf87: Pulling fs layer
+416ff2dde93b: Pulling fs layer
+b2420ef8d091: Pulling fs layer
+8d569216ea67: Pulling fs layer
+e372992f2de4: Pulling fs layer
+4a4599d6cad2: Waiting
+cdee707f1783: Waiting
+01a78fc5a086: Waiting
+262a733e1c60: Waiting
+4581a2c2e603: Waiting
+95f785fabf87: Waiting
+416ff2dde93b: Waiting
+b2420ef8d091: Waiting
+8d569216ea67: Waiting
+e372992f2de4: Waiting
+37c0c8bc662c: Waiting
+9cb31e2e37ea: Verifying Checksum
+9cb31e2e37ea: Download complete
+37c0c8bc662c: Verifying Checksum
+37c0c8bc662c: Download complete
+4a4599d6cad2: Download complete
+cdee707f1783: Verifying Checksum
+cdee707f1783: Download complete
+01a78fc5a086: Download complete
+262a733e1c60: Verifying Checksum
+262a733e1c60: Download complete
+
+
+2025-10-09 22:35:45,396 - ERROR - swea-run - ❌ Failed on pylint-dev__astroid-1978: Failed to pull image docker.io/swebench/sweb.eval.x86_64.pylint-dev_1776_astroid-1978:latest. Error: Output: latest: Pulling from swebench/sweb.eval.x86_64.pylint-dev_1776_astroid-1978
+9cb31e2e37ea: Pulling fs layer
+400078b4a384: Pulling fs layer
+b1f363631ad2: Pulling fs layer
+37c0c8bc662c: Pulling fs layer
+4a4599d6cad2: Pulling fs layer
+cdee707f1783: Pulling fs layer
+01a78fc5a086: Pulling fs layer
+262a733e1c60: Pulling fs layer
+4581a2c2e603: Pulling fs layer
+95f785fabf87: Pulling fs layer
+416ff2dde93b: Pulling fs layer
+b2420ef8d091: Pulling fs layer
+8d569216ea67: Pulling fs layer
+e372992f2de4: Pulling fs layer
+4a4599d6cad2: Waiting
+cdee707f1783: Waiting
+01a78fc5a086: Waiting
+262a733e1c60: Waiting
+4581a2c2e603: Waiting
+95f785fabf87: Waiting
+416ff2dde93b: Waiting
+b2420ef8d091: Waiting
+8d569216ea67: Waiting
+e372992f2de4: Waiting
+37c0c8bc662c: Waiting
+9cb31e2e37ea: Verifying Checksum
+9cb31e2e37ea: Download complete
+37c0c8bc662c: Verifying Checksum
+37c0c8bc662c: Download complete
+4a4599d6cad2: Download complete
+cdee707f1783: Verifying Checksum
+cdee707f1783: Download complete
+01a78fc5a086: Download complete
+262a733e1c60: Verifying Checksum
+262a733e1c60: Download complete
+
