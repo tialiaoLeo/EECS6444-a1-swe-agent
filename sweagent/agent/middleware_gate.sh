@@ -25,9 +25,9 @@ POLICY_FILE="${POLICY_FILE:-Policies.yaml}"
 OUT_JSON="${OUT_JSON:-violations.json}"
 OUT_YAML="${OUT_YAML:-violations.yaml}"
 LLM_FEEDBACK="${LLM_FEEDBACK:-.middleware_feedback.md}"
-REAL_TEST_CMD="pytest helloworld.py"
 
-
+REAL_TEST_CMD="CONTAINER_ID=\$(docker ps  --format \"{{.Names}}\" | head -n 1) && docker cp \$CONTAINER_ID:/testbed ./testbed-local && pytest -c /dev/null /home/tianpei/IdeaProjects/SWE-agent/testbed-local/"
+#REAL_TEST_CMD="ls"
 # Run the engine (gate on ERROR/HIGH)
 set +e
 python policy_engine.py \

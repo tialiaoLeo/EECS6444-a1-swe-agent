@@ -4,6 +4,7 @@ import asyncio
 import copy
 import json
 import logging
+import os
 import subprocess
 import time
 from pathlib import Path, PurePosixPath
@@ -1232,6 +1233,69 @@ class DefaultAgent(AbstractAgent):
             },
         )
         self.trajectory.append(trajectory_step)
+    def middle_ware_shell(self,n_step,script_path):
+        '''
+        self.logger.info("pytest " + f" STEP {n_step} ")
+        try:
+            result = subprocess.run(
+                ["bash", script_path],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            self.logger.info("Shell script executed successfully.")
+            if result.stdout:
+                self.logger.info(f"STDOUT:\n{result.stdout}")
+                return result.stdout
+            if result.stderr:
+                self.logger.warning(f"STDERR:\n{result.stderr}")
+                return result.stderr
+            return result
+        except subprocess.CalledProcessError as e:
+            self.logger.warning(f"Shell script failed with exit code {e.returncode}")
+            self.logger.warning(f"STDERR:\n{e.stdout}")
+            return e.stdout
+            # You could raise here if you want to stop the process:
+            # raise
+        '''
+        proc = subprocess.Popen(
+            ["bash", script_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True
+        )
+        res = ''
+        for line in proc.stdout:
+            self.logger.info(line.rstrip())
+            res += ' ' + line.rstrip()
+        proc.wait()
+        return res
+
+    def remove_dir(self, dir_path: str):
+        self.logger.info(f"Removing directory: {dir_path}")
+
+        if not os.path.exists(dir_path):
+            self.logger.info(f"Directory {dir_path} does not exist, skipping.")
+            return
+
+        try:
+            result = subprocess.run(
+            ["rm", "-rf", dir_path],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            self.logger.info(f"Directory {dir_path} removed successfully.")
+            if result.stdout:
+                self.logger.info(f"STDOUT:\n{result.stdout}")
+            if result.stderr:
+                self.logger.warning(f"STDERR:\n{result.stderr}")
+        except subprocess.CalledProcessError as e:
+            self.logger.warning(f"Failed to remove {dir_path}, exit code {e.returncode}")
+            self.logger.warning(f"STDOUT:\n{e.stdout}")
+            self.logger.warning(f"STDERR:\n{e.stderr}")
+
+
 
     def step(self) -> StepOutput:
         """Run a step of the agent. This is a wrapper around `self.forward_with_handling`
@@ -1250,29 +1314,15 @@ class DefaultAgent(AbstractAgent):
 
         n_step = len(self.trajectory) + 1
         self.logger.info("=" * 25 + f" STEP {n_step} " + "=" * 25)
-        self.logger.info("pytest " + f" STEP {n_step} ")
+        error_msg = self.middle_ware_shell(n_step, "/home/tianpei/IdeaProjects/SWE-agent/sweagent/agent/middleware_gate.sh")
 
-        script_path = "/home/tianpei/IdeaProjects/SWE-agent/sweagent/agent/middleware_gate.sh"
-
-        try:
-            result = subprocess.run(
-                ["bash", script_path],
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            self.logger.info("Shell script executed successfully.")
-            if result.stdout:
-                self.logger.info(f"STDOUT:\n{result.stdout}")
-            if result.stderr:
-                self.logger.warning(f"STDERR:\n{result.stderr}")
-        except subprocess.CalledProcessError as e:
-            self.logger.error(f"Shell script failed with exit code {e.returncode}")
-            self.logger.error(f"STDERR:\n{e}")
-            # You could raise here if you want to stop the process:
-            # raise
+        original_content = self.messages[0]['content']
+        self.messages[0]['content'] = original_content + f'we have observing error message using pytest: {error_msg}'
 
         step_output = self.forward_with_handling(self.messages)
+        self.logger.info(f"self.messages:\n{self.messages}")
+        # Restore
+        self.messages[0]['content'] = original_content
         self.add_step_to_history(step_output)
 
         self.info["submission"] = step_output.submission
@@ -1285,7 +1335,7 @@ class DefaultAgent(AbstractAgent):
 
         self._chook.on_step_done(step=step_output, info=self.info)
 
-
+        self.remove_dir("testbed-local")
 
         return step_output
 
