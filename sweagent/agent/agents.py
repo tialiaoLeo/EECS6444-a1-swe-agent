@@ -1234,30 +1234,6 @@ class DefaultAgent(AbstractAgent):
         )
         self.trajectory.append(trajectory_step)
     def middle_ware_shell(self,n_step,script_path):
-        '''
-        self.logger.info("pytest " + f" STEP {n_step} ")
-        try:
-            result = subprocess.run(
-                ["bash", script_path],
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            self.logger.info("Shell script executed successfully.")
-            if result.stdout:
-                self.logger.info(f"STDOUT:\n{result.stdout}")
-                return result.stdout
-            if result.stderr:
-                self.logger.warning(f"STDERR:\n{result.stderr}")
-                return result.stderr
-            return result
-        except subprocess.CalledProcessError as e:
-            self.logger.warning(f"Shell script failed with exit code {e.returncode}")
-            self.logger.warning(f"STDERR:\n{e.stdout}")
-            return e.stdout
-            # You could raise here if you want to stop the process:
-            # raise
-        '''
         proc = subprocess.Popen(
             ["bash", script_path],
             stdout=subprocess.PIPE,
