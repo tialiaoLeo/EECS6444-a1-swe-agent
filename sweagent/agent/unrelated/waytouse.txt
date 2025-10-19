@@ -1,0 +1,26 @@
+# 1) Dump the exact prompt (single JSON) for astropy__astropy-12907 (Oracle)
+python test.py astropy__astropy-12907 --variant oracle --mode raw --out out/
+
+# 2) Also produce a structured JSON (issue + files[{path, content}]) for the same instance
+python dump_lite.py astropy__astropy-12907 --variant oracle --mode both --out out/
+
+# 3) BM25 (27K tokens) variant instead of Oracle:
+python dump_lite.py astropy__astropy-12907 --variant bm25_27K --mode raw --out out/
+
+
+
+
+python test.py astropy__astropy-12907 --variant oracle --mode raw --out out/
+
+python test.py astropy__astropy-14182 --variant oracle --mode raw --out out/
+
+python test.py astropy__astropy-14365 --variant oracle --mode raw --out out/
+
+python test.py astropy__astropy-14995 --variant oracle --mode raw --out out/
+
+python test.py astropy__astropy-6938 --variant oracle --mode raw --out out/
+python test.py astropy__astropy-7746 --variant oracle --mode raw --out out/
+python test.py django__django-10914 --variant oracle --mode raw --out out/
+python test.py django__django-10924 --variant oracle --mode raw --out out/
+python test.py django__django-11001 --variant oracle --mode raw --out out/
+python test.py django__django-11019 --variant oracle --mode raw --out out/

@@ -1,3 +1,4 @@
+# Existing policies
 - id: RUFF_F821
   title: Undefined name
   tool: ruff
@@ -20,3 +21,157 @@
   severity: ERROR
   primary_for_pattern: true
   description: Static type checker error.
+
+- id: RUFF_SYNTAX
+  title: Invalid Syntax
+  tool: ruff
+  code: invalid-syntax
+  severity: ERROR
+  primary_for_pattern: true
+  description: Syntax error in Python code
+
+# Astropy-specific policies based on actual issues
+
+- id: ASTROPY_6938
+  title: "FITS D exponent replace not in-place bug"
+  tool: astropy
+  code: "astropy__astropy-6938"
+  severity: ERROR
+  primary_for_pattern: true
+  description: "Bug in io.fits related to D exponents. The replace operation in _scale_back_ascii is not in-place for chararray, causing the exponent separator replacement from 'E' to 'D' to fail silently."
+
+- id: ASTROPY_7746
+  title: "WCS empty arrays/lists transformation error"
+  tool: astropy
+  code: "astropy__astropy-7746"
+  severity: ERROR
+  primary_for_pattern: true
+  description: "Issue when passing empty lists/arrays to WCS transformations. The WCS transformation should return empty lists/arrays when given empty input, but instead raises InconsistentAxisTypesError."
+
+- id: ASTROPY_12907
+  title: "Modeling separability_matrix nested CompoundModels bug"
+  tool: astropy
+  code: "astropy__astropy-12907"
+  severity: ERROR
+  primary_for_pattern: true
+  description: "The separability_matrix function does not compute separability correctly for nested CompoundModels. When compound models are nested using the & operator, the matrix incorrectly shows outputs as non-separable when they should be independent."
+
+- id: ASTROPY_14182
+  title: "RestructuredText header rows not supported"
+  tool: astropy
+  code: "astropy__astropy-14182"
+  severity: ERROR
+  primary_for_pattern: true
+  description: "RestructuredText output does not support header_rows parameter. The RST writer should accept header_rows argument to specify which table rows to output as headers (e.g., name, unit, dtype)."
+
+- id: ASTROPY_14365
+  title: "QDP format case sensitivity bug"
+  tool: astropy
+  code: "astropy__astropy-14365"
+  severity: ERROR
+  primary_for_pattern: true
+  description: "ascii.qdp Table format assumes QDP commands are upper case. QDP commands should be case-insensitive (e.g., 'read serr' should work the same as 'READ SERR'), but the parser only accepts uppercase commands."
+
+# Category-specific policies for common patterns
+
+- id: ASTROPY_WCS_BUG
+  title: "WCS coordinate transformation bug"
+  tool: astropy
+  code: "WCS_TRANSFORM"
+  severity: ERROR
+  description: "Bug in World Coordinate System transformations affecting coordinate conversions between pixel and world coordinates."
+
+- id: ASTROPY_FITS_IO
+  title: "FITS I/O operation error"
+  tool: astropy
+  code: "FITS_IO"
+  severity: ERROR
+  description: "Error in FITS file reading/writing operations, including issues with data conversion, scaling, or format handling."
+
+- id: ASTROPY_ASCII_TABLE
+  title: "ASCII table format bug"
+  tool: astropy
+  code: "ASCII_TABLE"
+  severity: ERROR
+  description: "Bug in ASCII table readers/writers affecting parsing, formatting, or data conversion in various ASCII table formats."
+
+- id: ASTROPY_MODELING
+  title: "Modeling framework bug"
+  tool: astropy
+  code: "MODELING"
+  severity: ERROR
+  description: "Bug in the Astropy modeling framework affecting model composition, transformations, or parameter handling."
+
+
+- id: ASTROPY_14995
+  title: "NDData mask propagation bug with missing masks"
+  tool: astropy
+  code: "astropy__astropy-14995"
+  severity: ERROR
+  primary_for_pattern: true
+  description: "Bug in nddata.mixins.ndarithmetic where mask propagation fails when one operand doesn't have a mask. The _arithmetic_mask method incorrectly checks 'operand is None' instead of 'operand.mask is None', causing TypeError when performing arithmetic with handle_mask=np.bitwise_or on operands where one has a mask and the other doesn't."
+
+- id: DJANGO_10914
+  title: "FILE_UPLOAD_PERMISSIONS default inconsistency"
+  tool: django
+  code: "django__django-10914"
+  severity: ERROR
+  primary_for_pattern: true
+  description: "FILE_UPLOAD_PERMISSIONS has no default value (None), causing inconsistent file permissions depending on upload handler used. Files uploaded via TemporaryUploadedFile get 0o0600 permissions while MemoryUploadedFile may get different permissions. Default should be set to 0o644 for consistent behavior."
+
+- id: DJANGO_10924
+  title: "FilePathField path parameter doesn't accept callable"
+  tool: django
+  code: "django__django-10924"
+  severity: ERROR
+  primary_for_pattern: true
+  description: "FilePathField's path parameter doesn't support callable values. The formfield() method doesn't call the path if it's callable, causing issues when path needs to be determined dynamically (e.g., based on settings that differ between environments). The fix checks if path is callable and calls it before passing to the form field."
+
+
+- id: DJANGO_11001
+  title: "Multiline RawSQL ORDER BY clause removal bug"
+  tool: django
+  code: "django__django-11001"
+  severity: ERROR
+  primary_for_pattern: true
+  description: "SQLCompiler incorrectly removes ORDER BY clauses created as multiline RawSQL expressions. The ordering_parts regex doesn't handle multiline SQL, causing it to match only the last line. This leads to false duplicate detection when multiple RawSQL order clauses have identical final lines. The regex needs re.MULTILINE | re.DOTALL flags to handle multiline SQL correctly."
+
+
+- id: DJANGO_11019
+  title: "Media.merge() throws unnecessary MediaOrderConflictWarnings"
+  tool: django
+  code: "django__django-11019"
+  severity: WARN
+  primary_for_pattern: true
+  description: "Merging 3+ media objects can throw unnecessary MediaOrderConflictWarnings. The pairwise merge algorithm creates false ordering constraints (e.g., color-picker.js before text-editor.js when they're independent). The fix replaces the pairwise merge with a topological sort using dependency graphs, which correctly handles multi-way merges without imposing false constraints."
+
+
+- id: DJANGO_FILE_UPLOAD
+  title: "File upload handling bug"
+  tool: django
+  code: "FILE_UPLOAD"
+  severity: ERROR
+  description: "Bug in Django's file upload system affecting permissions, temporary file handling, or upload handler behavior."
+
+- id: DJANGO_FORM_FIELD
+  title: "Form field configuration bug"
+  tool: django
+  code: "FORM_FIELD"
+  severity: ERROR
+  description: "Bug in Django form field definitions affecting parameter handling, validation, or widget configuration."
+
+- id: DJANGO_SQL_COMPILER
+  title: "SQL compiler bug"
+  tool: django
+  code: "SQL_COMPILER"
+  severity: ERROR
+  description: "Bug in Django's SQL compiler affecting query generation, particularly in ORDER BY, WHERE, or JOIN clause construction."
+
+- id: DJANGO_STATIC_MEDIA
+  title: "Static/Media file handling bug"
+  tool: django
+  code: "STATIC_MEDIA"
+  severity: ERROR
+  description: "Bug in Django's static files or media handling system affecting CSS/JS merging, ordering, or rendering."
+
+

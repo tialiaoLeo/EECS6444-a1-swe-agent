@@ -1,278 +1,401 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-
 from __future__ import annotations
+
 import argparse
+import dataclasses
+import hashlib
 import json
 import os
+import re
+import subprocess
 import sys
-import yaml
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Iterable
-import importlib.util
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-# ---------------- Config & Globals ----------------
+SEVERITY_ORDER = ["INFO", "LOW", "WARN", "MEDIUM", "HIGH", "ERROR", "CRITICAL"]
+SEVERITY_RANK = {name: i for i, name in enumerate(SEVERITY_ORDER)}
 
-DEFAULT_PLUGIN_DIRS: List[Path] = []
-SEVERITY_ORDER = {"INFO": 0, "LOW": 0, "WARN": 1, "WARNING": 1, "MEDIUM": 1,
-                  "ERROR": 2, "HIGH": 2, "CRITICAL": 3}
+def _e(msg: str) -> None:
+    sys.stderr.write(msg.rstrip() + "\n")
 
-# ---------------- Utilities ----------------
+def relpath(path: Union[str, Path], root: Union[str, Path]) -> str:
+    try:
+        return str(Path(path).resolve().relative_to(Path(root).resolve()))
+    except Exception:
+        return str(path)
 
-def load_yaml(path: str | Path) -> Any:
-    with open(path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+def load_policies(p: Path) -> List[Dict[str, Any]]:
+    if not p.exists():
+        _e(f"[policy-engine] policy file not found: {p}")
+        return []  # run with default severities
+    try:
+        import yaml  # type: ignore
+        with p.open("r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        _e(f"[policy-engine] loaded YAML policies: {p}")
+    except Exception as ex_yaml:
+        try:
+            with p.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+            _e(f"[policy-engine] loaded JSON policies: {p}")
+        except Exception as ex_json:
+            _e(f"[policy-engine] failed to parse policies: {ex_yaml} / {ex_json}")
+            return []
+    if not isinstance(data, list):
+        _e("[policy-engine] policies must be a list; proceeding with empty set.")
+        return []
+    out = []
+    for q in data:
+        if not isinstance(q, dict):
+            continue
+        q = dict(q)
+        q.setdefault("severity", "WARN")
+        q["severity"] = str(q["severity"]).upper()
+        out.append(q)
+    return out
 
-def dump_yaml(obj: Any, path: str | Path) -> None:
-    with open(path, "w", encoding="utf-8") as f:
-        yaml.dump(obj, f, sort_keys=False, allow_unicode=True)
+def sha256(s: str) -> str:
+    return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
-def dump_json(obj: Any, path: str | Path) -> None:
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(obj, f, indent=2, ensure_ascii=False)
+def make_fp(path: str, code: str, message: str, line: int) -> str:
+    return sha256(f"{path}:{line}:{code}:{message}")
 
-def severity_rank(s: Optional[str]) -> int:
+def try_json_or_ndjson(s: str):
+    s = s.strip()
     if not s:
-        return 0
-    return SEVERITY_ORDER.get(str(s).upper(), 0)
-
-# ---------------- Plugin SPI ----------------
-
-class PreprocessorBase:
-    """
-    Plugin hook: run(ctx) may append ctx.violations and/or set state.
-    A 'violation' dict typically includes:
-      policy_id, title, severity, description, file, span, target, type
-    """
-    def run(self, ctx: "Context") -> None:
-        raise NotImplementedError
-
-class PatternStrategyBase:
-    """Optional: node-based matching if you use AST inputs."""
-    name: str = ""
-    def candidate_types(self) -> Optional[set]:  # pragma: no cover
-        return None
-    def matches(self, node: Dict[str, Any], ctx: "Context") -> bool:  # pragma: no cover
-        raise NotImplementedError
-
-class PreprocessorRegistry:
-    _pre: List[PreprocessorBase] = []
-    @classmethod
-    def register(cls, pre_cls):
-        cls._pre.append(pre_cls())
-        return pre_cls
-    @classmethod
-    def all(cls) -> List[PreprocessorBase]:
-        return cls._pre[:]
-
-class PatternRegistry:
-    _strategies: Dict[str, PatternStrategyBase] = {}
-    @classmethod
-    def register(cls, name: str):
-        def deco(strategy_cls):
-            inst = strategy_cls()
-            inst.name = name
-            cls._strategies[name] = inst
-            return strategy_cls
-        return deco
-    @classmethod
-    def get(cls, name: str) -> Optional[PatternStrategyBase]:
-        return cls._strategies.get(name)
-
-def _discover_plugin_dirs(cli_dirs: Optional[List[str]]) -> List[Path]:
-    here = Path(__file__).resolve().parent
-    dirs: List[Path] = [here / "policy_plugins"]
-    if cli_dirs:
-        dirs.extend(Path(p) for p in cli_dirs)
-    env = os.environ.get("POLICY_PLUGIN_DIRS")
-    if env:
-        dirs.extend(Path(p) for p in env.split(os.pathsep) if p)
-    return [d for d in dirs if d.exists() and d.is_dir()]
-
-def load_plugins(cli_dirs: Optional[List[str]] = None) -> None:
-    for d in _discover_plugin_dirs(cli_dirs):
-        for py in sorted(d.glob("*.py")):
-            name = f"policy_plugin_{py.stem}"
-            if name in sys.modules:
+        return []
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        items = []
+        for ln in s.splitlines():
+            ln = ln.strip()
+            if not ln:
                 continue
-            spec = importlib.util.spec_from_file_location(name, str(py))
-            if not spec or not spec.loader:
-                continue
-            mod = importlib.util.module_from_spec(spec)
-            # expose registries & base classes
-            mod.__dict__.update({
-                "PreprocessorRegistry": PreprocessorRegistry,
-                "PatternRegistry": PatternRegistry,
-                "PreprocessorBase": PreprocessorBase,
-                "PatternStrategyBase": PatternStrategyBase,
-            })
-            sys.modules[name] = mod
             try:
-                spec.loader.exec_module(mod)  # type: ignore[attr-defined]
-            except Exception as e:
-                print(f"[plugin-load] Skipped {py.name}: {e}", file=sys.stderr)
+                items.append(json.loads(ln))
+            except Exception:
+                pass
+        return items
 
-# ---------------- Engine Core ----------------
+def run(args: List[str], expect_json=False):
+    p = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    data = None
+    if expect_json:
+        try:
+            data = try_json_or_ndjson(p.stdout)
+        except Exception:
+            data = None
+    return p.returncode, data, p.stdout, p.stderr
 
-class Context:
-    def __init__(
-        self,
-        repo_root: Path,
-        policies: List[Dict[str, Any]],
-        ast: Optional[Dict[str, Any]] = None,
-        files: Optional[List[str]] = None,
-    ):
-        # Normalize severities early
-        for p in policies:
-            if isinstance(p.get("severity"), str):
-                p["severity"] = p["severity"].upper()
-        self.repo_root: Path = repo_root
-        self.policies: List[Dict[str, Any]] = policies
-        self.ast: Dict[str, Any] = ast or {}
-        self.files: List[str] = files or []
-        self.violations: List[Dict[str, Any]] = []
-        # Arbitrary cross-pass state available to plugins
-        self.state: Dict[str, Any] = {}
+@dataclasses.dataclass
+class Finding:
+    policy_id: str
+    tool: str
+    code: str
+    severity: str
+    message: str
+    path: str
+    line: int
+    column: int = 0
+    snippet: Optional[str] = None
+    fingerprint: Optional[str] = None
+    extra: Dict[str, Any] = dataclasses.field(default_factory=dict)
+    def to_dict(self) -> Dict[str, Any]:
+        return dataclasses.asdict(self)
 
-    # Utility for plugins: find the policy entry for a given tool/code
-    def policy_for_tool(self, tool: str, code: Optional[str]) -> Optional[Dict[str, Any]]:
-        tool = (tool or "").lower()
-        code = (code or "").strip() if code else None
+# ---------------- tool adapters (always run if installed) ----------------
 
-        # Exact match first
-        if code:
-            for p in self.policies:
-                if (p.get("tool", "").lower() == tool) and (p.get("code") == code):
-                    return p
-        # Regex / wildcard
-        if code:
-            import re
-            for p in self.policies:
-                if p.get("tool", "").lower() == tool and p.get("match"):
-                    try:
-                        if re.fullmatch(str(p["match"]), code):
-                            return p
-                    except re.error:
-                        continue
-        # Tool-only default
-        for p in self.policies:
-            if p.get("tool", "").lower() == tool and not p.get("code") and not p.get("match"):
-                return p
-        return None
+def run_ruff(files: List[str], repo: str) -> List[Dict[str, Any]]:
+    import shutil
+    if not shutil.which("ruff"):
+        _e("[policy-engine] ruff not found; skipping.")
+        return []
+    cmd = ["ruff","check","--format","json","--force-exclude","--quiet",*files]
+    code, data, out, err = run(cmd, expect_json=True)
+    if data is None:
+        cmd = ["ruff","check","--output-format","json","--force-exclude","--quiet",*files]
+        code, data, out, err = run(cmd, expect_json=True)
+    if data is None:
+        _e("[policy-engine] ruff produced non-JSON; skipping.")
+        return []
+    diags = data["diagnostics"] if isinstance(data, dict) and "diagnostics" in data else data
+    res = []
+    for d in diags or []:
+        filename = d.get("filename") or d.get("file") or ""
+        loc = d.get("location") or {}
+        row = int(loc.get("row") or loc.get("line") or d.get("line") or 1)
+        col = int(loc.get("column") or d.get("column") or 0)
+        code_s = str(d.get("code") or d.get("rule") or "")
+        message = d.get("message") or d.get("description") or ""
+        path_rel = relpath(filename, repo)
+        snippet = None
+        try:
+            text = Path(filename).read_text(encoding="utf-8", errors="replace").splitlines()
+            if 1 <= row <= len(text):
+                snippet = text[row-1]
+        except Exception:
+            pass
+        res.append({"tool":"ruff","code":code_s,"message":message,"path":path_rel,"line":row,"column":col,"snippet":snippet,"raw":d})
+    _e(f"[policy-engine] ruff findings: {len(res)}")
+    return res
 
-class PolicyEngine:
-    def __init__(self, ctx: Context):
-        self.ctx = ctx
+def run_mypy(files: List[str], repo: str) -> List[Dict[str, Any]]:
+    import shutil
+    if not shutil.which("mypy"):
+        _e("[policy-engine] mypy not found; skipping.")
+        return []
+    code, data, out, err = run(["mypy","--output","json",*files], expect_json=True)
+    if data is None:
+        code, _, out, err = run(["mypy","--no-error-summary","--hide-error-context","--show-column-numbers","--show-error-code",*files])
+        pat = re.compile(r"^(?P<file>.*?):(?P<line>\d+):(?P<col>\d+): (?:error|note): (?P<msg>.*?)(?: \[(?P<code>[-_a-zA-Z0-9]+)\])?$")
+        items=[]
+        for ln in out.splitlines():
+            m = pat.match(ln.strip())
+            if not m: continue
+            items.append({"tool":"mypy","code":m.group("code") or "mypy","message":m.group("msg"),
+                          "path":relpath(m.group("file"),repo),"line":int(m.group("line")),"column":int(m.group("col"))})
+        _e(f"[policy-engine] mypy findings: {len(items)} (text mode)")
+        return items
+    seq = data if isinstance(data, list) else data.get("errors", [])
+    items=[]
+    for e in seq or []:
+        items.append({"tool":"mypy","code":(e.get("code") or "mypy"),"message":e.get("message") or "",
+                      "path":relpath(e.get("path") or e.get("filename") or "", repo),
+                      "line":int(e.get("line") or 1),"column":int(e.get("column") or 0),"raw":e})
+    _e(f"[policy-engine] mypy findings: {len(items)}")
+    return items
 
-    def run(self) -> List[Dict[str, Any]]:
-        # Only preprocessors are required for this middleware (tool-driven).
-        # Pattern strategies (AST) can be added via plugins if you need them.
-        for pre in PreprocessorRegistry.all():
-            try:
-                pre.run(self.ctx)
-            except Exception as e:
-                print(f"[plugin] {pre.__class__.__name__} failed: {e}", file=sys.stderr)
-        return self.ctx.violations
+def run_bandit(files: List[str], repo: str) -> List[Dict[str, Any]]:
+    import shutil
+    if not shutil.which("bandit"):
+        _e("[policy-engine] bandit not found; skipping.")
+        return []
+    dirs = sorted({str(Path(f).parent) for f in files})
+    if not dirs:
+        return []
+    cmd = ["bandit","-q","-f","json"]
+    for d in dirs: cmd.extend(["-r", d])
+    code, data, out, err = run(cmd, expect_json=True)
+    if not isinstance(data, dict):
+        _e("[policy-engine] bandit non-JSON output; skipping.")
+        return []
+    issues = data.get("results") or data.get("issues") or []
+    res=[]
+    for it in issues:
+        fname = it.get("filename") or ""
+        res.append({"tool":"bandit","code":str(it.get("test_id") or it.get("test_name") or "bandit"),
+                    "message":it.get("issue_text") or it.get("message") or "",
+                    "path":relpath(fname,repo),"line":int(it.get("line_number") or it.get("line") or 1),
+                    "column":0,"raw":it})
+    _e(f"[policy-engine] bandit findings: {len(res)}")
+    return res
 
-# ---------------- Feedback & Gating ----------------
+def run_detect_secrets(files: List[str], repo: str) -> List[Dict[str, Any]]:
+    import shutil
+    if not shutil.which("detect-secrets"):
+        _e("[policy-engine] detect-secrets not found; skipping.")
+        return []
+    dirs = sorted({str(Path(f).parent) for f in files})
+    if not dirs:
+        return []
+    cmd = ["detect-secrets","scan","--json","--force-use-all-plugins",*dirs]
+    code, data, out, err = run(cmd, expect_json=True)
+    if not isinstance(data, dict):
+        _e("[policy-engine] detect-secrets non-JSON output; skipping.")
+        return []
+    res=[]
+    for fname, items in (data.get("results") or {}).items():
+        for it in items:
+            typ = it.get("type") or it.get("name") or "secret"
+            res.append({"tool":"detect-secrets","code":str(typ),
+                        "message":f"Potential secret detected ({typ})",
+                        "path":relpath(fname,repo),"line":int(it.get("line_number") or 1),
+                        "column":0,"raw":it})
+    _e(f"[policy-engine] detect-secrets findings: {len(res)}")
+    return res
 
-def format_llm_feedback(violations: List[Dict[str, Any]], max_per_file: int = 8) -> str:
-    if not violations:
-        return "Static analysis found no issues.\n"
+# ---------------- policy mapping / output ----------------
 
-    # Group by file
-    by_file: Dict[str, List[Dict[str, Any]]] = {}
-    for v in violations:
-        by_file.setdefault(v.get("file", "<unknown>"), []).append(v)
+def assign_sev(tool: str, code: str) -> str:
+    if tool == "ruff":
+        c = (code or "").upper()
+        if c.startswith("F"): return "ERROR"
+        if c.startswith("E"): return "WARN"
+        return "INFO"
+    if tool == "mypy": return "ERROR"
+    if tool in {"bandit","detect-secrets"}: return "HIGH"
+    return "WARN"
 
-    lines: List[str] = []
-    lines.append("### Static Analysis Findings")
-    for fpath, vs in sorted(by_file.items()):
-        lines.append(f"\n**{fpath}**")
-        # stable/simple sort: severity desc, line asc
-        def _sort_key(v):
-            s = severity_rank(v.get("severity"))
-            line = (((v.get("span") or {}).get("start") or {}).get("line")) or 0
-            return (-s, line)
-        vs_sorted = sorted(vs, key=_sort_key)[:max_per_file]
-        for v in vs_sorted:
-            pid = v.get("policy_id", "?")
-            title = v.get("title", "")
-            sev = v.get("severity", "INFO")
-            span = v.get("span") or {}
-            start = span.get("start") or {}
-            l = start.get("line", "?")
-            c = start.get("column", "?")
-            desc = (v.get("description") or "").strip()
-            if len(desc) > 180:
-                desc = desc[:177] + "..."
-            lines.append(f"- **{sev}** [{pid}] {title} @ L{l}:{c} — {desc}")
-    lines.append("\n> Fix these before re-running tests.")
-    return "\n".join(lines) + "\n"
+@dataclasses.dataclass
+class FindingRaw:
+    tool:str; code:str; message:str; path:str; line:int; column:int; snippet:Optional[str]; raw:Any
 
-def violations_block(violations: List[Dict[str, Any]]) -> bool:
-    return any(severity_rank(v.get("severity")) >= severity_rank("ERROR") for v in violations)
+def map_findings(raw: List[Dict[str, Any]], policies: List[Dict[str, Any]]) -> List[Finding]:
+    # Optional policy-based overrides (by tool+code or regex "match" on message)
+    by_key: Dict[Tuple[str,str], List[Dict[str, Any]]] = {}
+    regex_pols: List[Dict[str, Any]] = []
+    for p in policies:
+        tool = str(p.get("tool","")).strip()
+        code = str(p.get("code") or "").strip()
+        if tool and code:
+            by_key.setdefault((tool, code), []).append(p)
+        elif p.get("match"):
+            try: p["_regex"] = re.compile(p["match"])
+            except Exception: p["_regex"] = re.compile(re.escape(str(p["match"])))
+            regex_pols.append(p)
 
-# ---------------- CLI ----------------
+    out: List[Finding] = []
+    for rf in raw:
+        R = FindingRaw(
+            tool=str(rf.get("tool","")),
+            code=str(rf.get("code") or ""),
+            message=rf.get("message") or "",
+            path=rf.get("path") or "",
+            line=int(rf.get("line") or 1),
+            column=int(rf.get("column") or 0),
+            snippet=rf.get("snippet"),
+            raw=rf.get("raw"),
+        )
+        used_policy = None
+        for pol in by_key.get((R.tool, R.code), []):
+            used_policy = pol; break
+        if used_policy is None:
+            for pol in regex_pols:
+                rgx = pol.get("_regex")
+                if rgx and rgx.search(R.message):
+                    used_policy = pol; break
 
-def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Static Analysis Policy Engine")
-    p.add_argument("--policies", required=True, help="Path to Policies.yaml")
-    p.add_argument("--ast", default=None, help="Optional AST JSON file (for AST-based plugins)")
-    p.add_argument("--files", nargs="*", help="Files to analyze (typically the git diff)")
+        severity = assign_sev(R.tool, R.code)
+        pid = f"{R.tool}:{R.code or 'GEN'}"
+        if used_policy:
+            custom = str(used_policy.get("severity","")).upper()
+            if custom in SEVERITY_RANK:
+                severity = custom
+            pid = str(used_policy.get("id") or pid)
 
-    p.add_argument("--plugin-dirs", nargs="*", default=None,
-                   help="Additional plugin directories (overrides defaults/env)")
+        out.append(Finding(
+            policy_id=pid, tool=R.tool, code=R.code or "GEN", severity=severity,
+            message=R.message, path=R.path, line=R.line, column=R.column,
+            snippet=R.snippet, fingerprint=make_fp(R.path, R.code or pid, R.message, R.line),
+            extra=dict(policy=used_policy, raw=R.raw)
+        ))
+    return out
 
-    p.add_argument("--repo-root", default=".", help="Repository root (for path normalization)")
-    p.add_argument("--gate", action="store_true", help="Exit 1 if blocking violations exist")
-    p.add_argument("--llm-feedback", default=None, help="Write compact markdown for LLM prompt")
-    p.add_argument("--out-json", default="violations.json", help="Write violations JSON here")
-    p.add_argument("--out-yaml", default="violations.yaml", help="Write violations YAML here")
-    p.add_argument("--max-findings-per-file", type=int, default=8)
-    return p.parse_args(argv)
+def write_yaml(path: str, data: Any) -> None:
+    try:
+        import yaml  # type: ignore
+        from yaml import safe_dump  # type: ignore
+        Path(path).write_text(safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
+        _e(f"[policy-engine] wrote YAML: {path}")
+    except Exception as e:
+        _e(f"[policy-engine] YAML dump unavailable ({e}); writing a minimal YAML note instead.")
+        # Minimal fallback so the file exists (helps agent loops that expect the path)
+        content = "# YAML unavailable (missing PyYAML?). See violations.json for full output.\n"
+        try:
+            Path(path).write_text(content, encoding="utf-8")
+        except Exception as e2:
+            _e(f"[policy-engine] failed to write YAML fallback: {e2}")
+
+def to_sarif(findings: List[Finding]) -> Dict[str, Any]:
+    rules = {}
+    results = []
+    for f in findings:
+        rid = f.policy_id
+        rules.setdefault(rid, {"id": rid, "shortDescription": {"text": f.tool},
+                               "properties": {"security-severity": str(SEVERITY_RANK.get(f.severity,1))}})
+        results.append({"ruleId": rid, "message": {"text": f.message},
+                        "locations": [{"physicalLocation": {"artifactLocation": {"uri": f.path.replace(os.sep,"/")},
+                                                            "region": {"startLine": f.line, "startColumn": f.column or 1}}}],
+                        "fingerprints": {"primaryLocationLineHash": f.fingerprint or ""}})
+    return {"version":"2.1.0","$schema":"https://json.schemastore.org/sarif-2.1.0.json",
+            "runs":[{"tool":{"driver":{"name":"policy-engine","rules":list(rules.values())}},"results":results}]}
+
+def gate_fail(findings: List[Finding], threshold: str) -> bool:
+    thr = threshold.upper()
+    if thr not in SEVERITY_RANK:
+        thr = "ERROR"
+    return any(SEVERITY_RANK.get(f.severity,0) >= SEVERITY_RANK[thr] for f in findings)
+
+def format_feedback(findings: List[Finding], max_per_file: int = 15) -> str:
+    by_file: Dict[str, List[Finding]] = {}
+    for f in findings: by_file.setdefault(f.path, []).append(f)
+    lines = ["# Static Analysis Findings (summary)\n"]
+    for path, items in sorted(by_file.items()):
+        items = sorted(items, key=lambda x: (-SEVERITY_RANK.get(x.severity,0), x.line))
+        if max_per_file: items = items[:max_per_file]
+        lines.append(f"## {path}")
+        for f in items:
+            lines.append(f"- [{f.severity}] {f.policy_id} L{f.line}: {f.message}")
+        lines.append("")
+    return "\n".join(lines)
 
 def main(argv: Optional[List[str]] = None) -> int:
+    ap = argparse.ArgumentParser(description="SWE-bench-friendly static analysis (no AST)")
+    ap.add_argument("--policies", default="Policies.yaml")
+    ap.add_argument("--files", nargs="*", default=[])
+    ap.add_argument("--repo-root", default=os.getcwd())
+    ap.add_argument("--gate", action="store_true")
+    ap.add_argument("--gate-min-severity", default="ERROR")
+    ap.add_argument("--out-json", default="violations.json")
+    ap.add_argument("--out-yaml", default="violations.yaml")
+    ap.add_argument("--out-sarif", default="")
+    ap.add_argument("--llm-feedback", default=".middleware_feedback.md")
+    ap.add_argument("--max-findings-per-file", type=int, default=15)
+    args = ap.parse_args(argv)
+
+    _e(f"[policy-engine] repo-root={args.repo-root} files={len(args.files)} gate={args.gate} policies={args.policies}")
+
+    repo = args.repo_root
+    policies = load_policies(Path(args.policies))
+
+    files = [f for f in args.files if f.endswith(".py") and Path(f).exists()]
+    if not files:
+        _e("[policy-engine] no files to analyze (empty set).")
+
+    # Always run installed tools (even if policies are empty); map severities afterward.
+    raw: List[Dict[str, Any]] = []
+    if files:
+        raw.extend(run_ruff(files, repo))
+        raw.extend(run_mypy(files, repo))
+        raw.extend(run_bandit(files, repo))
+        raw.extend(run_detect_secrets(files, repo))
+
+    findings = map_findings(raw, policies)
+
+    # fingerprint & snippet enrichment
+    for f in findings:
+        if not f.fingerprint:
+            f.fingerprint = make_fp(f.path, f.code or f.policy_id, f.message, f.line)
+
+    data = [x.to_dict() for x in findings]
     try:
-        args = parse_args(argv)
-        load_plugins(args.plugin_dirs)
-
-        policies = load_yaml(args.policies) or []
-        if not isinstance(policies, list):
-            raise ValueError("Policies.yaml must be a list of policy entries")
-
-        ast_doc = None
-        if args.ast and Path(args.ast).exists():
-            with open(args.ast, "r", encoding="utf-8") as f:
-                ast_doc = json.load(f)
-
-        repo_root = Path(args.repo_root).resolve()
-        files = args.files or []
-        # Normalize file paths relative to repo root
-        files = [str(Path(f).resolve()) for f in files if Path(f).exists()]
-
-        ctx = Context(repo_root=repo_root, policies=policies, ast=ast_doc, files=files)
-        engine = PolicyEngine(ctx)
-        violations = engine.run()
-
-        if args.out_json:
-            dump_json(violations, args.out_json)
-        if args.out_yaml:
-            dump_yaml(violations, args.out_yaml)
-        if args.llm_feedback:
-            Path(args.llm_feedback).write_text(
-                format_llm_feedback(violations, args.max_findings_per_file),
-                encoding="utf-8"
-            )
-
-        if args.gate and violations_block(violations):
-            return 1
-        return 0
-
+        Path(args.out_json).write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        _e(f"[policy-engine] wrote JSON: {args.out_json} ({len(findings)} findings)")
     except Exception as e:
-        print(f"[policy-engine] error: {e}", file=sys.stderr)
-        return 2
+        _e(f"[policy-engine] failed to write JSON: {e}")
+
+    write_yaml(args.out_yaml, data)
+
+    if args.out_sarif:
+        try:
+            Path(args.out_sarif).write_text(json.dumps(to_sarif(findings), indent=2), encoding="utf-8")
+            _e(f"[policy-engine] wrote SARIF: {args.out_sarif}")
+        except Exception as e:
+            _e(f"[policy-engine] failed to write SARIF: {e}")
+
+    if args.llm_feedback:
+        try:
+            Path(args.llm_feedback).write_text(format_feedback(findings, args.max_findings_per_file), encoding="utf-8")
+            _e(f"[policy-engine] wrote feedback: {args.llm_feedback}")
+        except Exception as e:
+            _e(f"[policy-engine] failed to write feedback: {e}")
+
+    if args.gate and gate_fail(findings, args.gate_min_severity):
+        return 1
+    return 0
 
 if __name__ == "__main__":
     raise SystemExit(main())

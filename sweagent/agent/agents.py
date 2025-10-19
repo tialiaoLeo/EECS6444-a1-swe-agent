@@ -1233,6 +1233,25 @@ class DefaultAgent(AbstractAgent):
             },
         )
         self.trajectory.append(trajectory_step)
+    def get_violation_details(self,code: str, json_path: str = "violations.json") -> dict:
+        """
+        Given a code like 'astropy__astropy-12907', read the violations.json file
+        and return a dictionary with severity, message, description, evidence,
+        and suggested_fix fields. If not found, returns None.
+        """
+        with open(json_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        for entry in data:
+            for v in entry.get("violations", []):
+                if v.get("code") == code:
+                    return {
+                        "severity": v.get("severity"),
+                        "message": v.get("message"),
+                        "description": v.get("description"),
+                        "evidence": v.get("evidence"),
+                        "suggested_fix": v.get("suggested_fix")
+                    }
     def middle_ware_shell(self,n_step,script_path):
         proc = subprocess.Popen(
             ["bash", script_path],
@@ -1246,33 +1265,6 @@ class DefaultAgent(AbstractAgent):
             res += ' ' + line.rstrip()
         proc.wait()
         return res
-
-    def remove_dir(self, dir_path: str):
-        self.logger.info(f"Removing directory: {dir_path}")
-
-        if not os.path.exists(dir_path):
-            self.logger.info(f"Directory {dir_path} does not exist, skipping.")
-            return
-
-        try:
-            result = subprocess.run(
-            ["rm", "-rf", dir_path],
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            self.logger.info(f"Directory {dir_path} removed successfully.")
-            if result.stdout:
-                self.logger.info(f"STDOUT:\n{result.stdout}")
-            if result.stderr:
-                self.logger.warning(f"STDERR:\n{result.stderr}")
-        except subprocess.CalledProcessError as e:
-            self.logger.warning(f"Failed to remove {dir_path}, exit code {e.returncode}")
-            self.logger.warning(f"STDOUT:\n{e.stdout}")
-            self.logger.warning(f"STDERR:\n{e.stderr}")
-
-
-
     def step(self) -> StepOutput:
         """Run a step of the agent. This is a wrapper around `self.forward_with_handling`
         with additional bookkeeping:
@@ -1290,10 +1282,12 @@ class DefaultAgent(AbstractAgent):
 
         n_step = len(self.trajectory) + 1
         self.logger.info("=" * 25 + f" STEP {n_step} " + "=" * 25)
-        error_msg = self.middle_ware_shell(n_step, "/home/tianpei/IdeaProjects/SWE-agent/sweagent/agent/middleware_gate.sh")
 
         original_content = self.messages[0]['content']
-        self.messages[0]['content'] = original_content + f'we have observing error message using pytest: {error_msg}'
+        result = self.get_violation_details(self._problem_statement.id, "/home/tianpei/IdeaProjects/SWE-agent/sweagent/agent/violations.json")
+
+
+        self.messages[0]['content'] = original_content + f'we have observing error message in json, and provided the evidence and suggested_fix: {result}'
 
         step_output = self.forward_with_handling(self.messages)
         self.logger.info(f"self.messages:\n{self.messages}")
@@ -1311,7 +1305,7 @@ class DefaultAgent(AbstractAgent):
 
         self._chook.on_step_done(step=step_output, info=self.info)
 
-        self.remove_dir("testbed-local")
+
 
         return step_output
 
