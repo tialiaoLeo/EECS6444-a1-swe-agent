@@ -1,0 +1,15 @@
+instances_by_exit_status:
+    skipped (submitted (exit_cost)):
+    - astropy__astropy-14182
+    - astropy__astropy-14995
+    - astropy__astropy-6938
+    - django__django-10914
+    - django__django-10924
+    skipped (submitted):
+    - astropy__astropy-12907
+    - astropy__astropy-14365
+    - astropy__astropy-7746
+    submitted (exit_cost):
+    - django__django-11001
+    - django__django-11019
+total_cost: 1.0156773000000001

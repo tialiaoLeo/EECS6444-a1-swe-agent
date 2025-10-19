@@ -1,0 +1,341 @@
+diff --git a/astropy/io/ascii/rst.py b/astropy/io/ascii/rst.py
+index abdeba8ef..40a9fd58a 100644
+--- a/astropy/io/ascii/rst.py
++++ b/astropy/io/ascii/rst.py
+@@ -57,10 +57,21 @@ class RST(FixedWidth):
+     data_class = SimpleRSTData
+     header_class = SimpleRSTHeader
+ 
+-    def __init__(self):
+-        super().__init__(delimiter_pad=None, bookend=False)
++    def __init__(self, header_rows=None):
++        super().__init__(delimiter_pad=None, bookend=False, header_rows=header_rows)
+ 
+     def write(self, lines):
+         lines = super().write(lines)
+-        lines = [lines[1]] + lines + [lines[1]]
++        # Find the separator line (contains position_char which is "=")
++        separator_line = None
++        for line in lines:
++            if self.header.position_char in line:
++                separator_line = line
++                break
++        
++        if separator_line is None:
++            # Fallback to the old behavior if no separator line is found
++            separator_line = lines[1] if len(lines) > 1 else ""
++        
++        lines = [separator_line] + lines + [separator_line]
+         return lines
+diff --git a/debug_output.py b/debug_output.py
+new file mode 100644
+index 000000000..3f6a42c38
+--- /dev/null
++++ b/debug_output.py
+@@ -0,0 +1,50 @@
++#!/usr/bin/env python3
++
++from astropy.table import QTable
++import astropy.units as u
++import sys
++from astropy.io.ascii import rst
++
++# Create a test table
++tbl = QTable({'wave': [350, 950]*u.nm, 'response': [0.7, 1.2]*u.count})
++
++print("Testing RST with header_rows - let's see what the parent write method returns:")
++
++# Create an RST writer instance
++writer = rst.RST(header_rows=["name", "unit"])
++
++# Get the lines from the parent write method
++from io import StringIO
++output = StringIO()
++tbl.write(output, format="ascii.fixed_width", header_rows=["name", "unit"])
++fixed_width_output = output.getvalue()
++print("Fixed width output:")
++print(repr(fixed_width_output))
++print("Fixed width output (formatted):")
++print(fixed_width_output)
++
++# Now let's see what happens with RST
++print("\nNow testing RST parent write method:")
++# We need to manually call the parent's write method to see what it returns
++# Let's create a custom RST class to debug this
++
++class DebugRST(rst.RST):
++    def write(self, lines):
++        parent_lines = super(rst.RST, self).write(lines)  # Call FixedWidth.write
++        print(f"Parent write returned {len(parent_lines)} lines:")
++        for i, line in enumerate(parent_lines):
++            print(f"  Line {i}: {repr(line)}")
++        
++        # Now apply RST formatting
++        rst_lines = [parent_lines[1]] + parent_lines + [parent_lines[1]]
++        print(f"RST write will return {len(rst_lines)} lines:")
++        for i, line in enumerate(rst_lines):
++            print(f"  Line {i}: {repr(line)}")
++        return rst_lines
++
++debug_writer = DebugRST(header_rows=["name", "unit"])
++output2 = StringIO()
++tbl.write(output2, Writer=debug_writer)
++rst_output = output2.getvalue()
++print("Final RST output:")
++print(rst_output)
+\ No newline at end of file
+diff --git a/debug_rst_original.py b/debug_rst_original.py
+new file mode 100644
+index 000000000..bded4503a
+--- /dev/null
++++ b/debug_rst_original.py
+@@ -0,0 +1,32 @@
++#!/usr/bin/env python3
++
++from astropy.table import QTable
++import astropy.units as u
++from astropy.io.ascii.rst import RST
++
++# Create a test table
++tbl = QTable({'wave': [350, 950]*u.nm, 'response': [0.7, 1.2]*u.count})
++
++print("Testing RST with default (no header_rows):")
++rst = RST()
++
++# Let's see what the parent class returns
++class DebugRST(RST):
++    def write(self, lines):
++        parent_lines = super(RST, self).write(lines)  # Call FixedWidth.write
++        print(f"FixedWidth.write returned {len(parent_lines)} lines:")
++        for i, line in enumerate(parent_lines):
++            print(f"  Line {i}: {repr(line)}")
++        
++        # Now apply RST formatting
++        rst_lines = [parent_lines[1]] + parent_lines + [parent_lines[1]]
++        print(f"RST.write will return {len(rst_lines)} lines:")
++        for i, line in enumerate(rst_lines):
++            print(f"  Line {i}: {repr(line)}")
++        return rst_lines
++
++debug_rst = DebugRST()
++lines = debug_rst.write(tbl)
++print("\nFinal output:")
++for line in lines:
++    print(line)
+\ No newline at end of file
+diff --git a/reproduce_error.py b/reproduce_error.py
+new file mode 100644
+index 000000000..485be6a40
+--- /dev/null
++++ b/reproduce_error.py
+@@ -0,0 +1,23 @@
++#!/usr/bin/env python3
++
++from astropy.table import QTable
++import astropy.units as u
++import sys
++
++# Create a test table
++tbl = QTable({'wave': [350, 950]*u.nm, 'response': [0.7, 1.2]*u.count})
++
++print("Testing basic RST output:")
++tbl.write(sys.stdout, format="ascii.rst")
++print()
++
++print("Testing fixed_width with header_rows (this works):")
++tbl.write(sys.stdout, format="ascii.fixed_width", header_rows=["name", "unit"])
++print()
++
++print("Testing RST with header_rows (this should fail):")
++try:
++    tbl.write(sys.stdout, format="ascii.rst", header_rows=["name", "unit"])
++except Exception as e:
++    print(f"Error: {e}")
++    print(f"Error type: {type(e).__name__}")
+\ No newline at end of file
+diff --git a/simple_debug.py b/simple_debug.py
+new file mode 100644
+index 000000000..4fa0a6472
+--- /dev/null
++++ b/simple_debug.py
+@@ -0,0 +1,27 @@
++#!/usr/bin/env python3
++
++from astropy.table import QTable
++import astropy.units as u
++from astropy.io.ascii.rst import RST
++from astropy.io.ascii.fixedwidth import FixedWidth
++
++# Create a test table
++tbl = QTable({'wave': [350, 950]*u.nm, 'response': [0.7, 1.2]*u.count})
++
++print("Testing FixedWidth with header_rows:")
++fw = FixedWidth(header_rows=["name", "unit"])
++lines = fw.write(tbl)
++for i, line in enumerate(lines):
++    print(f"Line {i}: {repr(line)}")
++
++print("\nTesting RST with default header_rows:")
++rst = RST()
++lines = rst.write(tbl)
++for i, line in enumerate(lines):
++    print(f"Line {i}: {repr(line)}")
++
++print("\nTesting RST with header_rows=['name', 'unit']:")
++rst2 = RST(header_rows=["name", "unit"])
++lines2 = rst2.write(tbl)
++for i, line in enumerate(lines2):
++    print(f"Line {i}: {repr(line)}")
+\ No newline at end of file
+diff --git a/test_complex.py b/test_complex.py
+new file mode 100644
+index 000000000..9cf50a4bd
+--- /dev/null
++++ b/test_complex.py
+@@ -0,0 +1,20 @@
++#!/usr/bin/env python3
++
++from astropy.table import QTable
++import astropy.units as u
++import sys
++
++# Create a test table with more complex names and units
++tbl = QTable({
++    'wavelength_nm': [350, 950, 1200]*u.nm, 
++    'flux_density': [0.7, 1.2, 0.9]*u.Jy,
++    'observation_id': ['obs1', 'obs2', 'obs3']
++})
++
++print("Complex table with header_rows=['name', 'unit']:")
++tbl.write(sys.stdout, format="ascii.rst", header_rows=["name", "unit"])
++print()
++
++print("Same table with fixed_width for comparison:")
++tbl.write(sys.stdout, format="ascii.fixed_width", header_rows=["name", "unit"])
++print()
+\ No newline at end of file
+diff --git a/test_edge_cases.py b/test_edge_cases.py
+new file mode 100644
+index 000000000..1bbc1aeda
+--- /dev/null
++++ b/test_edge_cases.py
+@@ -0,0 +1,34 @@
++#!/usr/bin/env python3
++
++from astropy.table import QTable
++import astropy.units as u
++import sys
++
++# Create a test table
++tbl = QTable({'wave': [350, 950]*u.nm, 'response': [0.7, 1.2]*u.count})
++
++print("Test 1: RST with header_rows=['name']")
++tbl.write(sys.stdout, format="ascii.rst", header_rows=["name"])
++print()
++
++print("Test 2: RST with header_rows=['name', 'unit']")
++tbl.write(sys.stdout, format="ascii.rst", header_rows=["name", "unit"])
++print()
++
++print("Test 3: RST with header_rows=['name', 'unit', 'dtype']")
++tbl.write(sys.stdout, format="ascii.rst", header_rows=["name", "unit", "dtype"])
++print()
++
++print("Test 4: RST with header_rows=[]")
++tbl.write(sys.stdout, format="ascii.rst", header_rows=[])
++print()
++
++print("Test 5: RST with default header_rows (should be same as Test 1)")
++tbl.write(sys.stdout, format="ascii.rst")
++print()
++
++# Test with a table that has no units
++print("Test 6: Table without units, header_rows=['name', 'unit']")
++tbl_no_units = QTable({'col1': [1, 2], 'col2': [3.0, 4.0]})
++tbl_no_units.write(sys.stdout, format="ascii.rst", header_rows=["name", "unit"])
++print()
+\ No newline at end of file
+diff --git a/test_pr_example.py b/test_pr_example.py
+new file mode 100644
+index 000000000..0bb7a1130
+--- /dev/null
++++ b/test_pr_example.py
+@@ -0,0 +1,77 @@
++#!/usr/bin/env python3
++
++from astropy.table import QTable
++import astropy.units as u
++import sys
++from io import StringIO
++
++# Reproduce the exact example from the PR description
++tbl = QTable({'wave': [350,950]*u.nm, 'response': [0.7, 1.2]*u.count})
++
++print("=== Testing the exact example from the PR description ===")
++
++print("1. Basic RST output:")
++output1 = StringIO()
++tbl.write(output1, format="ascii.rst")
++print(output1.getvalue())
++
++print("2. Fixed width with header_rows (should work):")
++output2 = StringIO()
++tbl.write(output2, format="ascii.fixed_width", header_rows=["name", "unit"])
++print(output2.getvalue())
++
++print("3. RST with header_rows (this was failing before our fix):")
++try:
++    output3 = StringIO()
++    tbl.write(output3, format="ascii.rst", header_rows=["name", "unit"])
++    print(output3.getvalue())
++    print("SUCCESS: No error occurred!")
++except Exception as e:
++    print(f"ERROR: {e}")
++    print(f"Error type: {type(e).__name__}")
++
++print("=== Additional verification ===")
++
++print("4. Verify the output format matches RST specification:")
++output4 = StringIO()
++tbl.write(output4, format="ascii.rst", header_rows=["name", "unit"])
++rst_output = output4.getvalue()
++lines = rst_output.strip().split('\n')
++
++print(f"Number of lines: {len(lines)}")
++for i, line in enumerate(lines):
++    print(f"Line {i}: {repr(line)}")
++
++# Verify the structure
++expected_structure = [
++    "separator line (===)",
++    "column names",
++    "units",
++    "separator line (===)",
++    "data row 1",
++    "data row 2", 
++    "separator line (===)"
++]
++
++print("\nStructure verification:")
++for i, (line, expected) in enumerate(zip(lines, expected_structure)):
++    if i in [0, 3, 6]:  # separator lines
++        if '=' in line:
++            print(f"✓ Line {i}: {expected} - CORRECT")
++        else:
++            print(f"✗ Line {i}: {expected} - INCORRECT: {repr(line)}")
++    elif i == 1:  # column names
++        if 'wave' in line and 'response' in line:
++            print(f"✓ Line {i}: {expected} - CORRECT")
++        else:
++            print(f"✗ Line {i}: {expected} - INCORRECT: {repr(line)}")
++    elif i == 2:  # units
++        if 'nm' in line and 'ct' in line:
++            print(f"✓ Line {i}: {expected} - CORRECT")
++        else:
++            print(f"✗ Line {i}: {expected} - INCORRECT: {repr(line)}")
++    elif i in [4, 5]:  # data rows
++        if any(str(val) in line for val in [350.0, 950.0, 0.7, 1.2]):
++            print(f"✓ Line {i}: {expected} - CORRECT")
++        else:
++            print(f"✗ Line {i}: {expected} - INCORRECT: {repr(line)}")
+\ No newline at end of file

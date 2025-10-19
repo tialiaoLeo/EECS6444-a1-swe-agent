@@ -1,0 +1,694 @@
+diff --git a/analyze_merge.py b/analyze_merge.py
+new file mode 100644
+index 0000000000..f9a3cda61b
+--- /dev/null
++++ b/analyze_merge.py
+@@ -0,0 +1,61 @@
++#!/usr/bin/env python3
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        SECRET_KEY='test-secret-key',
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.forms.widgets import Media
++
++def analyze_test_cases():
++    """Analyze the existing test cases to understand expected behavior"""
++    
++    test_values = (
++        (([1, 2], [3, 4]), [1, 2, 3, 4]),
++        (([1, 2], [2, 3]), [1, 2, 3]),
++        (([2, 3], [1, 2]), [1, 2, 3]),
++        (([1, 3], [2, 3]), [1, 2, 3]),
++        (([1, 2], [1, 3]), [1, 2, 3]),
++        (([1, 2], [3, 2]), [1, 3, 2]),
++    )
++    
++    print("Analyzing existing test cases:")
++    for (list1, list2), expected in test_values:
++        result = Media.merge(list1, list2)
++        status = "✅" if result == expected else "❌"
++        print(f"{status} merge({list1}, {list2}) = {result}, expected {expected}")
++
++def analyze_problem_case():
++    """Analyze the specific problem case"""
++    print("\nAnalyzing problem case:")
++    
++    # This is the problematic merge
++    list1 = ['color-picker.js', 'text-editor.js']
++    list2 = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++    
++    result = Media.merge(list1, list2)
++    print(f"merge({list1}, {list2}) = {result}")
++    
++    # What should the ideal result be?
++    # Looking at list2, we have the constraint: text-editor.js -> text-editor-extras.js
++    # Looking at list1, we have: color-picker.js -> text-editor.js (but this might be artificial)
++    
++    # The real constraint should be: text-editor.js -> text-editor-extras.js
++    # color-picker.js can be anywhere since it's independent
++    
++    ideal = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++    print(f"Ideal result: {ideal}")
++
++if __name__ == '__main__':
++    analyze_test_cases()
++    analyze_problem_case()
+\ No newline at end of file
+diff --git a/debug_merge.py b/debug_merge.py
+new file mode 100644
+index 0000000000..d30bc1282b
+--- /dev/null
++++ b/debug_merge.py
+@@ -0,0 +1,61 @@
++#!/usr/bin/env python3
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        SECRET_KEY='test-secret-key',
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.forms.widgets import Media
++
++def debug_merge(list_1, list_2):
++    """
++    Debug version of the merge function to understand what's happening
++    """
++    print(f"Merging {list_1} + {list_2}")
++    
++    # Start with a copy of list_1.
++    combined_list = list(list_1)
++    last_insert_index = len(list_1)
++    print(f"Initial combined_list: {combined_list}, last_insert_index: {last_insert_index}")
++    
++    # Walk list_2 in reverse, inserting each element into combined_list if
++    # it doesn't already exist.
++    for path in reversed(list_2):
++        print(f"Processing path: {path}")
++        try:
++            # Does path already exist in the list?
++            index = combined_list.index(path)
++            print(f"  Found {path} at index {index}")
++        except ValueError:
++            # Add path to combined_list since it doesn't exist.
++            print(f"  Adding {path} at index {last_insert_index}")
++            combined_list.insert(last_insert_index, path)
++        else:
++            if index > last_insert_index:
++                print(f"  WARNING: {path} at index {index} > last_insert_index {last_insert_index}")
++                print(f"  This would trigger warning about {combined_list[last_insert_index]} and {combined_list[index]}")
++            # path already exists in the list. Update last_insert_index so
++            # that the following elements are inserted in front of this one.
++            last_insert_index = index
++            print(f"  Updated last_insert_index to {last_insert_index}")
++        print(f"  Current combined_list: {combined_list}")
++    
++    print(f"Final result: {combined_list}")
++    return combined_list
++
++if __name__ == '__main__':
++    # Test the problematic case
++    list_1 = ['color-picker.js', 'text-editor.js']
++    list_2 = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++    
++    result = debug_merge(list_1, list_2)
+\ No newline at end of file
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..d946c1549e 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -6,6 +6,7 @@ import copy
+ import datetime
+ import re
+ import warnings
++from collections import defaultdict
+ from itertools import chain
+ 
+ from django.conf import settings
+@@ -128,6 +129,10 @@ class Media:
+         # Start with a copy of list_1.
+         combined_list = list(list_1)
+         last_insert_index = len(list_1)
++        
++        # Keep track of conflicts to decide if we should warn
++        conflicts = []
++        
+         # Walk list_2 in reverse, inserting each element into combined_list if
+         # it doesn't already exist.
+         for path in reversed(list_2):
+@@ -139,16 +144,76 @@ class Media:
+                 combined_list.insert(last_insert_index, path)
+             else:
+                 if index > last_insert_index:
+-                    warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
+-                        MediaOrderConflictWarning,
+-                    )
++                    # This is a potential conflict, but let's see if we can resolve it
++                    conflicts.append((path, index, last_insert_index))
+                 # path already exists in the list. Update last_insert_index so
+                 # that the following elements are inserted in front of this one.
+                 last_insert_index = index
++        
++        # Now try to resolve conflicts by checking if we can find a better ordering
++        if conflicts:
++            # Try an alternative approach: build the result by respecting the order from list_2 more
++            alternative = Media._try_alternative_merge(list_1, list_2)
++            if alternative and Media._is_better_result(alternative, combined_list, list_1, list_2):
++                return alternative
++            
++            # If we can't find a better alternative, warn about the first conflict
++            path, index, last_insert_index = conflicts[0]
++            warnings.warn(
++                'Detected duplicate Media files in an opposite order:\n'
++                '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
++                MediaOrderConflictWarning,
++            )
++        
+         return combined_list
+ 
++    @staticmethod
++    def _try_alternative_merge(list_1, list_2):
++        """
++        Try an alternative merge that prioritizes the order from list_2
++        """
++        # Start with list_2 as the base
++        result = list(list_2)
++        
++        # Add items from list_1 that are not in list_2
++        for item in list_1:
++            if item not in result:
++                # Find the best position to insert this item
++                # For now, just append it
++                result.append(item)
++        
++        return result
++
++    @staticmethod
++    def _is_better_result(alternative, original, list_1, list_2):
++        """
++        Check if the alternative result is better than the original.
++        A result is better if it respects more of the original ordering constraints.
++        """
++        # Check if alternative respects the order from list_2 better
++        alt_score = Media._calculate_order_score(alternative, list_2)
++        orig_score = Media._calculate_order_score(original, list_2)
++        
++        # If alternative is significantly better at preserving list_2 order, use it
++        return alt_score > orig_score
++
++    @staticmethod
++    def _calculate_order_score(result, reference):
++        """
++        Calculate how well the result preserves the order from reference.
++        Higher score means better preservation.
++        """
++        score = 0
++        for i in range(len(reference) - 1):
++            item1, item2 = reference[i], reference[i + 1]
++            if item1 in result and item2 in result:
++                pos1, pos2 = result.index(item1), result.index(item2)
++                if pos1 < pos2:  # Correct order preserved
++                    score += 1
++                else:  # Order violated
++                    score -= 1
++        return score
++
+     def __add__(self, other):
+         combined = Media()
+         combined._css_lists = self._css_lists + other._css_lists
+diff --git a/improved_merge.py b/improved_merge.py
+new file mode 100644
+index 0000000000..4a556e63ac
+--- /dev/null
++++ b/improved_merge.py
+@@ -0,0 +1,156 @@
++#!/usr/bin/env python3
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        SECRET_KEY='test-secret-key',
++        USE_TZ=True,
++    )
++
++django.setup()
++
++import warnings
++
++def improved_merge(list_1, list_2):
++    """
++    Improved merge that tries to find a better ordering and only warns
++    when there's a real unresolvable conflict.
++    """
++    # Start with a copy of list_1.
++    combined_list = list(list_1)
++    last_insert_index = len(list_1)
++    
++    # Keep track of conflicts to decide if we should warn
++    conflicts = []
++    
++    # Walk list_2 in reverse, inserting each element into combined_list if
++    # it doesn't already exist.
++    for path in reversed(list_2):
++        try:
++            # Does path already exist in the list?
++            index = combined_list.index(path)
++        except ValueError:
++            # Add path to combined_list since it doesn't exist.
++            combined_list.insert(last_insert_index, path)
++        else:
++            if index > last_insert_index:
++                # This is a potential conflict, but let's see if we can resolve it
++                conflicts.append((path, index, last_insert_index))
++            # path already exists in the list. Update last_insert_index so
++            # that the following elements are inserted in front of this one.
++            last_insert_index = index
++    
++    # Now try to resolve conflicts by checking if we can find a better ordering
++    if conflicts:
++        # Try an alternative approach: build the result by respecting the order from list_2 more
++        alternative = try_alternative_merge(list_1, list_2)
++        if alternative and is_better_result(alternative, combined_list, list_1, list_2):
++            return alternative
++        
++        # If we can't find a better alternative, warn about the first conflict
++        path, index, last_insert_index = conflicts[0]
++        warnings.warn(
++            'Detected duplicate Media files in an opposite order:\n'
++            '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
++            RuntimeWarning,
++        )
++    
++    return combined_list
++
++def try_alternative_merge(list_1, list_2):
++    """
++    Try an alternative merge that prioritizes the order from list_2
++    """
++    # Start with list_2 as the base
++    result = list(list_2)
++    
++    # Add items from list_1 that are not in list_2
++    for item in list_1:
++        if item not in result:
++            # Find the best position to insert this item
++            # For now, just append it
++            result.append(item)
++    
++    return result
++
++def is_better_result(alternative, original, list_1, list_2):
++    """
++    Check if the alternative result is better than the original.
++    A result is better if it respects more of the original ordering constraints.
++    """
++    # Check if alternative respects the order from list_2 better
++    alt_score = calculate_order_score(alternative, list_2)
++    orig_score = calculate_order_score(original, list_2)
++    
++    # If alternative is significantly better at preserving list_2 order, use it
++    return alt_score > orig_score
++
++def calculate_order_score(result, reference):
++    """
++    Calculate how well the result preserves the order from reference.
++    Higher score means better preservation.
++    """
++    score = 0
++    for i in range(len(reference) - 1):
++        item1, item2 = reference[i], reference[i + 1]
++        if item1 in result and item2 in result:
++            pos1, pos2 = result.index(item1), result.index(item2)
++            if pos1 < pos2:  # Correct order preserved
++                score += 1
++            else:  # Order violated
++                score -= 1
++    return score
++
++def test_improved_algorithm():
++    """Test the improved algorithm"""
++    
++    # Test existing cases
++    test_values = (
++        (([1, 2], [3, 4]), [1, 2, 3, 4]),
++        (([1, 2], [2, 3]), [1, 2, 3]),
++        (([2, 3], [1, 2]), [1, 2, 3]),
++        (([1, 3], [2, 3]), [1, 2, 3]),
++        (([1, 2], [1, 3]), [1, 2, 3]),
++        (([1, 2], [3, 2]), [1, 3, 2]),
++    )
++    
++    print("Testing improved algorithm against existing test cases:")
++    all_pass = True
++    for (list1, list2), expected in test_values:
++        with warnings.catch_warnings(record=True) as w:
++            warnings.simplefilter("always")
++            result = improved_merge(list1, list2)
++            
++            status = "✅" if result == expected else "❌"
++            if result != expected:
++                all_pass = False
++            print(f"{status} merge({list1}, {list2}) = {result}, expected {expected}")
++            if w:
++                print(f"  Warnings: {[str(warning.message) for warning in w]}")
++    
++    # Test the problem case
++    print("\nTesting problem case:")
++    list1 = ['color-picker.js', 'text-editor.js']
++    list2 = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++    
++    with warnings.catch_warnings(record=True) as w:
++        warnings.simplefilter("always")
++        result = improved_merge(list1, list2)
++        
++        print(f"merge({list1}, {list2}) = {result}")
++        
++        if w:
++            print(f"Warnings: {[str(warning.message) for warning in w]}")
++        else:
++            print("No warnings")
++    
++    return all_pass
++
++if __name__ == '__main__':
++    test_improved_algorithm()
+\ No newline at end of file
+diff --git a/new_merge_algorithm.py b/new_merge_algorithm.py
+new file mode 100644
+index 0000000000..904ad95830
+--- /dev/null
++++ b/new_merge_algorithm.py
+@@ -0,0 +1,132 @@
++#!/usr/bin/env python3
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        SECRET_KEY='test-secret-key',
++        USE_TZ=True,
++    )
++
++django.setup()
++
++import warnings
++from collections import defaultdict, deque
++
++def new_merge(list_1, list_2):
++    """
++    Merge two lists while trying to keep the relative order of the elements.
++    Only warn if there's a real circular dependency that can't be resolved.
++    """
++    if not list_1:
++        return list(list_2)
++    if not list_2:
++        return list(list_1)
++    
++    # Build a graph of dependencies from both lists
++    graph = defaultdict(set)
++    in_degree = defaultdict(int)
++    all_items = set(list_1) | set(list_2)
++    
++    # Initialize in_degree for all items
++    for item in all_items:
++        in_degree[item] = 0
++    
++    # Add edges from list_1 (a -> b means a should come before b)
++    for i in range(len(list_1) - 1):
++        if list_1[i+1] not in graph[list_1[i]]:
++            graph[list_1[i]].add(list_1[i+1])
++            in_degree[list_1[i+1]] += 1
++    
++    # Add edges from list_2
++    for i in range(len(list_2) - 1):
++        if list_2[i+1] not in graph[list_2[i]]:
++            graph[list_2[i]].add(list_2[i+1])
++            in_degree[list_2[i+1]] += 1
++    
++    # Topological sort using Kahn's algorithm
++    queue = deque([item for item in all_items if in_degree[item] == 0])
++    result = []
++    
++    while queue:
++        # Sort the queue to ensure deterministic results
++        # Prefer items that appear earlier in the original lists
++        current_items = list(queue)
++        queue.clear()
++        
++        # Sort by position in original lists (prefer list_1, then list_2)
++        def sort_key(item):
++            pos1 = list_1.index(item) if item in list_1 else float('inf')
++            pos2 = list_2.index(item) if item in list_2 else float('inf')
++            return (min(pos1, pos2), pos1, pos2)
++        
++        current_items.sort(key=sort_key)
++        
++        for item in current_items:
++            result.append(item)
++            
++            # Remove edges from this item
++            for neighbor in graph[item]:
++                in_degree[neighbor] -= 1
++                if in_degree[neighbor] == 0:
++                    queue.append(neighbor)
++    
++    # Check for cycles (if we haven't processed all items)
++    if len(result) != len(all_items):
++        # There's a cycle - fall back to the original algorithm with warning
++        remaining = all_items - set(result)
++        warnings.warn(
++            'Detected circular dependency in Media files: %s' % ', '.join(sorted(remaining)),
++            RuntimeWarning,
++        )
++        # Fall back to original merge for these items
++        return result + list(remaining)
++    
++    return result
++
++def test_new_algorithm():
++    """Test the new algorithm against existing test cases"""
++    
++    test_values = (
++        (([1, 2], [3, 4]), [1, 2, 3, 4]),
++        (([1, 2], [2, 3]), [1, 2, 3]),
++        (([2, 3], [1, 2]), [1, 2, 3]),
++        (([1, 3], [2, 3]), [1, 2, 3]),
++        (([1, 2], [1, 3]), [1, 2, 3]),
++        (([1, 2], [3, 2]), [1, 3, 2]),
++    )
++    
++    print("Testing new algorithm against existing test cases:")
++    all_pass = True
++    for (list1, list2), expected in test_values:
++        result = new_merge(list1, list2)
++        status = "✅" if result == expected else "❌"
++        if result != expected:
++            all_pass = False
++        print(f"{status} merge({list1}, {list2}) = {result}, expected {expected}")
++    
++    # Test the problem case
++    print("\nTesting problem case:")
++    list1 = ['color-picker.js', 'text-editor.js']
++    list2 = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++    
++    with warnings.catch_warnings(record=True) as w:
++        warnings.simplefilter("always")
++        result = new_merge(list1, list2)
++        
++        print(f"merge({list1}, {list2}) = {result}")
++        
++        if w:
++            print(f"Warnings: {[str(warning.message) for warning in w]}")
++        else:
++            print("No warnings")
++    
++    return all_pass
++
++if __name__ == '__main__':
++    test_new_algorithm()
+\ No newline at end of file
+diff --git a/reproduce_issue.py b/reproduce_issue.py
+new file mode 100644
+index 0000000000..78677a4edb
+--- /dev/null
++++ b/reproduce_issue.py
+@@ -0,0 +1,56 @@
++#!/usr/bin/env python3
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        SECRET_KEY='test-secret-key',
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django import forms
++
++class ColorPicker(forms.Widget):
++    class Media:
++        js = ['color-picker.js']
++
++class SimpleTextWidget(forms.Widget):
++    class Media:
++        js = ['text-editor.js']
++
++class FancyTextWidget(forms.Widget):
++    class Media:
++        js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++class MyForm(forms.Form):
++    background_color = forms.CharField(widget=ColorPicker())
++    intro = forms.CharField(widget=SimpleTextWidget())
++    body = forms.CharField(widget=FancyTextWidget())
++
++if __name__ == '__main__':
++    print("Testing media merging...")
++    
++    # Test individual widgets
++    print("ColorPicker media:", ColorPicker().media)
++    print("SimpleTextWidget media:", SimpleTextWidget().media)
++    print("FancyTextWidget media:", FancyTextWidget().media)
++    
++    # Test step-by-step merging
++    print("\nStep-by-step merging:")
++    step1 = ColorPicker().media + SimpleTextWidget().media
++    print("ColorPicker + SimpleTextWidget:", step1)
++    
++    step2 = step1 + FancyTextWidget().media
++    print("Previous + FancyTextWidget:", step2)
++    
++    # Test the form media (this should trigger the warning)
++    print("\nForm media:")
++    form_media = MyForm().media
++    print("MyForm media:", form_media)
+\ No newline at end of file
+diff --git a/test_pr_issue.py b/test_pr_issue.py
+new file mode 100644
+index 0000000000..4924f56a93
+--- /dev/null
++++ b/test_pr_issue.py
+@@ -0,0 +1,81 @@
++#!/usr/bin/env python3
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        SECRET_KEY='test-secret-key',
++        USE_TZ=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        }
++    )
++
++django.setup()
++
++import warnings
++from django import forms
++from django.forms.widgets import MediaOrderConflictWarning
++
++class ColorPicker(forms.Widget):
++    class Media:
++        js = ['color-picker.js']
++
++class SimpleTextWidget(forms.Widget):
++    class Media:
++        js = ['text-editor.js']
++
++class FancyTextWidget(forms.Widget):
++    class Media:
++        js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++class MyForm(forms.Form):
++    background_color = forms.CharField(widget=ColorPicker())
++    intro = forms.CharField(widget=SimpleTextWidget())
++    body = forms.CharField(widget=FancyTextWidget())
++
++def test_media_merge_issue():
++    """Test the specific issue described in the PR"""
++    
++    # Capture warnings
++    with warnings.catch_warnings(record=True) as w:
++        warnings.simplefilter("always")
++        
++        form_media = MyForm().media
++        js_files = form_media._js
++        
++        print(f"Final JS order: {js_files}")
++        
++        # Check if any warnings were raised
++        media_warnings = [warning for warning in w if issubclass(warning.category, MediaOrderConflictWarning)]
++        
++        if media_warnings:
++            print(f"Warning raised: {media_warnings[0].message}")
++            return False, js_files, str(media_warnings[0].message)
++        else:
++            print("No warnings raised")
++            return True, js_files, None
++
++if __name__ == '__main__':
++    success, js_files, warning_msg = test_media_merge_issue()
++    
++    # The ideal order should be: text-editor.js, text-editor-extras.js, color-picker.js
++    # Because text-editor-extras.js depends on text-editor.js
++    ideal_order = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++    
++    print(f"Current result: {js_files}")
++    print(f"Ideal result: {ideal_order}")
++    print(f"Warning message: {warning_msg}")
++    
++    if js_files == ideal_order and success:
++        print("✅ PASS: Correct order and no unnecessary warnings")
++    else:
++        print("❌ FAIL: Either wrong order or unnecessary warning")
+\ No newline at end of file

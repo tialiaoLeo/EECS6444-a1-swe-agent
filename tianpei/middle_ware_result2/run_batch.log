@@ -1,0 +1,30 @@
+2025-10-19 12:46:17,479 - INFO - swea-run - Starting run. Find output files at /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test
+2025-10-19 12:46:17,482 - INFO - swea-run - Running on instance astropy__astropy-12907
+2025-10-19 12:49:15,773 - INFO - swea-run - Running on instance astropy__astropy-14182
+2025-10-19 12:53:25,209 - INFO - swea-run - Running on instance astropy__astropy-14365
+2025-10-19 12:57:10,856 - INFO - swea-run - Running on instance astropy__astropy-14995
+2025-10-19 13:00:48,762 - INFO - swea-run - Running on instance astropy__astropy-6938
+2025-10-19 13:05:29,821 - INFO - swea-run - Running on instance astropy__astropy-7746
+2025-10-19 13:09:42,660 - INFO - swea-run - Running on instance django__django-10914
+2025-10-19 13:13:31,984 - INFO - swea-run - Running on instance django__django-10924
+2025-10-19 13:17:44,074 - INFO - swea-run - Running on instance django__django-11001
+2025-10-19 13:25:57,764 - INFO - swea-run - Starting run. Find output files at /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test
+2025-10-19 13:25:57,767 - INFO - swea-run - Running on instance astropy__astropy-12907
+2025-10-19 13:25:57,782 - INFO - swea-run - ⏭️ Skipping existing trajectory: /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test/astropy__astropy-12907/astropy__astropy-12907.traj
+2025-10-19 13:25:57,786 - INFO - swea-run - Running on instance astropy__astropy-14182
+2025-10-19 13:25:57,822 - INFO - swea-run - ⏭️ Skipping existing trajectory: /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test/astropy__astropy-14182/astropy__astropy-14182.traj
+2025-10-19 13:25:57,830 - INFO - swea-run - Running on instance astropy__astropy-14365
+2025-10-19 13:25:57,844 - INFO - swea-run - ⏭️ Skipping existing trajectory: /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test/astropy__astropy-14365/astropy__astropy-14365.traj
+2025-10-19 13:25:57,851 - INFO - swea-run - Running on instance astropy__astropy-14995
+2025-10-19 13:25:57,864 - INFO - swea-run - ⏭️ Skipping existing trajectory: /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test/astropy__astropy-14995/astropy__astropy-14995.traj
+2025-10-19 13:25:57,869 - INFO - swea-run - Running on instance astropy__astropy-6938
+2025-10-19 13:25:57,883 - INFO - swea-run - ⏭️ Skipping existing trajectory: /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test/astropy__astropy-6938/astropy__astropy-6938.traj
+2025-10-19 13:25:57,888 - INFO - swea-run - Running on instance astropy__astropy-7746
+2025-10-19 13:25:57,901 - INFO - swea-run - ⏭️ Skipping existing trajectory: /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test/astropy__astropy-7746/astropy__astropy-7746.traj
+2025-10-19 13:25:57,907 - INFO - swea-run - Running on instance django__django-10914
+2025-10-19 13:25:57,922 - INFO - swea-run - ⏭️ Skipping existing trajectory: /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test/django__django-10914/django__django-10914.traj
+2025-10-19 13:25:57,927 - INFO - swea-run - Running on instance django__django-10924
+2025-10-19 13:25:57,953 - INFO - swea-run - ⏭️ Skipping existing trajectory: /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test/django__django-10924/django__django-10924.traj
+2025-10-19 13:25:57,959 - INFO - swea-run - Running on instance django__django-11001
+2025-10-19 13:25:57,963 - WARNING - swea-run - Found existing trajectory with no exit status: /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test/django__django-11001/django__django-11001.traj. Removing.
+2025-10-19 13:30:18,782 - INFO - swea-run - Running on instance django__django-11019

@@ -1,0 +1,428 @@
+diff --git a/debug_permission_test.py b/debug_permission_test.py
+new file mode 100644
+index 0000000000..02efdbb8af
+--- /dev/null
++++ b/debug_permission_test.py
+@@ -0,0 +1,66 @@
++#!/usr/bin/env python3
++
++import os
++import tempfile
++import shutil
++import sys
++
++# Set up Django
++import django
++from django.conf import settings
++
++MEDIA_ROOT = tempfile.mkdtemp()
++UPLOAD_TO = os.path.join(MEDIA_ROOT, 'test_upload')
++
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        SECRET_KEY='test-secret-key',
++        MEDIA_ROOT=MEDIA_ROOT,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++        ],
++        USE_TZ=False,
++    )
++
++django.setup()
++
++from django.core.files.uploadedfile import SimpleUploadedFile
++from django.core.files.storage import default_storage
++
++def test_readonly_permission():
++    print("Testing readonly permission behavior...")
++    print(f"FILE_UPLOAD_PERMISSIONS setting: {settings.FILE_UPLOAD_PERMISSIONS}")
++    print(f"MEDIA_ROOT: {MEDIA_ROOT}")
++    print(f"UPLOAD_TO: {UPLOAD_TO}")
++    
++    # Create the media root directory
++    os.makedirs(MEDIA_ROOT, exist_ok=True)
++    
++    # Make the media root read-only
++    print(f"Setting MEDIA_ROOT permissions to 0o500 (read-only)")
++    os.chmod(MEDIA_ROOT, 0o500)
++    
++    try:
++        print("Attempting to save file to read-only directory...")
++        file_content = SimpleUploadedFile('foo.txt', b'x')
++        saved_path = default_storage.save('test_upload/foo.txt', file_content)
++        print(f"❌ UNEXPECTED: File save succeeded - should have failed! Saved to: {saved_path}")
++    except PermissionError as e:
++        print(f"✅ EXPECTED: PermissionError raised: {e}")
++    except Exception as e:
++        print(f"❌ UNEXPECTED: Different exception raised: {type(e).__name__}: {e}")
++    finally:
++        # Restore permissions for cleanup
++        os.chmod(MEDIA_ROOT, 0o700)
++        shutil.rmtree(MEDIA_ROOT)
++
++if __name__ == '__main__':
++    test_readonly_permission()
+\ No newline at end of file
+diff --git a/django/conf/global_settings.py b/django/conf/global_settings.py
+index acee9887d2..bdeec80610 100644
+--- a/django/conf/global_settings.py
++++ b/django/conf/global_settings.py
+@@ -304,7 +304,7 @@ FILE_UPLOAD_TEMP_DIR = None
+ 
+ # The numeric mode to set newly-uploaded files to. The value should be a mode
+ # you'd pass directly to os.chmod; see https://docs.python.org/library/os.html#files-and-directories.
+-FILE_UPLOAD_PERMISSIONS = None
++FILE_UPLOAD_PERMISSIONS = 0o644
+ 
+ # The numeric mode to assign to newly-created directories, when uploading files.
+ # The value should be a mode as you'd pass to os.chmod;
+diff --git a/reproduce_issue.py b/reproduce_issue.py
+new file mode 100644
+index 0000000000..548f38b6c7
+--- /dev/null
++++ b/reproduce_issue.py
+@@ -0,0 +1,90 @@
++#!/usr/bin/env python3
++
++import os
++import tempfile
++import shutil
++from io import BytesIO
++
++# Set up Django
++import django
++from django.conf import settings
++
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        SECRET_KEY='test-secret-key',
++        MEDIA_ROOT=tempfile.mkdtemp(),
++        FILE_UPLOAD_MAX_MEMORY_SIZE=1024,  # Small size to force temporary file usage
++    )
++
++django.setup()
++
++from django.core.files.storage import default_storage
++from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
++from django.core.files.uploadhandler import MemoryFileUploadHandler, TemporaryFileUploadHandler
++
++def test_file_permissions():
++    print("Testing file upload permissions...")
++    print(f"FILE_UPLOAD_PERMISSIONS setting: {settings.FILE_UPLOAD_PERMISSIONS}")
++    print(f"MEDIA_ROOT: {settings.MEDIA_ROOT}")
++    
++    # Test 1: Small file (InMemoryUploadedFile)
++    print("\n=== Test 1: Small file (InMemoryUploadedFile) ===")
++    small_content = b"Small file content"
++    small_file = InMemoryUploadedFile(
++        file=BytesIO(small_content),
++        field_name='test_field',
++        name='small_test.txt',
++        content_type='text/plain',
++        size=len(small_content),
++        charset='utf-8'
++    )
++    
++    small_path = default_storage.save('small_test.txt', small_file)
++    full_small_path = default_storage.path(small_path)
++    small_perms = oct(os.stat(full_small_path).st_mode)[-3:]
++    print(f"Small file saved to: {full_small_path}")
++    print(f"Small file permissions: {small_perms}")
++    
++    # Test 2: Large file (TemporaryUploadedFile)
++    print("\n=== Test 2: Large file (TemporaryUploadedFile) ===")
++    large_content = b"Large file content " * 100  # Make it larger than FILE_UPLOAD_MAX_MEMORY_SIZE
++    
++    # Create a temporary file
++    temp_file = tempfile.NamedTemporaryFile(delete=False)
++    temp_file.write(large_content)
++    temp_file.close()
++    
++    large_file = TemporaryUploadedFile(
++        name='large_test.txt',
++        content_type='text/plain',
++        size=len(large_content),
++        charset='utf-8'
++    )
++    large_file.file = open(temp_file.name, 'rb')
++    large_file.temporary_file_path = lambda: temp_file.name
++    
++    large_path = default_storage.save('large_test.txt', large_file)
++    full_large_path = default_storage.path(large_path)
++    large_perms = oct(os.stat(full_large_path).st_mode)[-3:]
++    print(f"Large file saved to: {full_large_path}")
++    print(f"Large file permissions: {large_perms}")
++    
++    # Check if permissions are different
++    print(f"\n=== Results ===")
++    print(f"Small file permissions: {small_perms}")
++    print(f"Large file permissions: {large_perms}")
++    
++    if small_perms != large_perms:
++        print("❌ ISSUE CONFIRMED: File permissions are inconsistent!")
++        print("Small files (InMemoryUploadedFile) and large files (TemporaryUploadedFile) have different permissions.")
++    else:
++        print("✅ File permissions are consistent.")
++    
++    # Cleanup
++    large_file.file.close()
++    os.unlink(temp_file.name)
++    shutil.rmtree(settings.MEDIA_ROOT)
++
++if __name__ == '__main__':
++    test_file_permissions()
+\ No newline at end of file
+diff --git a/test_edge_cases.py b/test_edge_cases.py
+new file mode 100644
+index 0000000000..2a1c36bc5c
+--- /dev/null
++++ b/test_edge_cases.py
+@@ -0,0 +1,111 @@
++#!/usr/bin/env python3
++
++import os
++import tempfile
++import shutil
++from io import BytesIO
++
++# Test edge case 1: Explicit None setting should still work
++import django
++from django.conf import settings
++
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        SECRET_KEY='test-secret-key',
++        MEDIA_ROOT=tempfile.mkdtemp(),
++        FILE_UPLOAD_PERMISSIONS=None,  # Explicitly set to None
++        FILE_UPLOAD_MAX_MEMORY_SIZE=1024,
++    )
++
++django.setup()
++
++from django.core.files.storage import default_storage, FileSystemStorage
++from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
++
++def test_edge_cases():
++    print("Testing edge cases...")
++    print(f"FILE_UPLOAD_PERMISSIONS setting: {settings.FILE_UPLOAD_PERMISSIONS}")
++    print(f"MEDIA_ROOT: {settings.MEDIA_ROOT}")
++    
++    # Test 1: Explicit None should still work (no chmod called)
++    print("\n=== Test 1: Explicit None setting ===")
++    small_content = b"Small file content"
++    small_file = InMemoryUploadedFile(
++        file=BytesIO(small_content),
++        field_name='test_field',
++        name='small_test.txt',
++        content_type='text/plain',
++        size=len(small_content),
++        charset='utf-8'
++    )
++    
++    small_path = default_storage.save('small_test.txt', small_file)
++    full_small_path = default_storage.path(small_path)
++    small_perms = oct(os.stat(full_small_path).st_mode)[-3:]
++    print(f"Small file permissions with None setting: {small_perms}")
++    
++    # Test 2: Custom storage with explicit permissions
++    print("\n=== Test 2: Custom storage with explicit permissions ===")
++    custom_storage = FileSystemStorage(
++        location=settings.MEDIA_ROOT,
++        file_permissions_mode=0o600
++    )
++    
++    custom_content = b"Custom permissions test"
++    custom_file = InMemoryUploadedFile(
++        file=BytesIO(custom_content),
++        field_name='test_field',
++        name='custom_test.txt',
++        content_type='text/plain',
++        size=len(custom_content),
++        charset='utf-8'
++    )
++    
++    custom_path = custom_storage.save('custom_test.txt', custom_file)
++    full_custom_path = custom_storage.path(custom_path)
++    custom_perms = oct(os.stat(full_custom_path).st_mode)[-3:]
++    print(f"Custom file permissions: {custom_perms}")
++    
++    # Test 3: Storage with None permissions (should not call chmod)
++    print("\n=== Test 3: Storage with None permissions ===")
++    none_storage = FileSystemStorage(
++        location=settings.MEDIA_ROOT,
++        file_permissions_mode=None
++    )
++    
++    none_content = b"None permissions test"
++    none_file = InMemoryUploadedFile(
++        file=BytesIO(none_content),
++        field_name='test_field',
++        name='none_test.txt',
++        content_type='text/plain',
++        size=len(none_content),
++        charset='utf-8'
++    )
++    
++    none_path = none_storage.save('none_test.txt', none_file)
++    full_none_path = none_storage.path(none_path)
++    none_perms = oct(os.stat(full_none_path).st_mode)[-3:]
++    print(f"None permissions file permissions: {none_perms}")
++    
++    print(f"\n=== Results ===")
++    print(f"With None setting: {small_perms}")
++    print(f"With custom 0o600: {custom_perms}")
++    print(f"With explicit None: {none_perms}")
++    
++    if custom_perms == '600':
++        print("✅ SUCCESS: Custom permissions override works!")
++    else:
++        print("❌ FAILURE: Custom permissions not working!")
++        
++    if none_perms in ['644', '666']:  # Depends on umask
++        print("✅ SUCCESS: None permissions work (no chmod called)!")
++    else:
++        print(f"⚠️  WARNING: Unexpected permissions with None: {none_perms}")
++    
++    # Cleanup
++    shutil.rmtree(settings.MEDIA_ROOT)
++
++if __name__ == '__main__':
++    test_edge_cases()
+\ No newline at end of file
+diff --git a/test_fix_comprehensive.py b/test_fix_comprehensive.py
+new file mode 100644
+index 0000000000..53c3630e00
+--- /dev/null
++++ b/test_fix_comprehensive.py
+@@ -0,0 +1,120 @@
++#!/usr/bin/env python3
++
++import os
++import tempfile
++import shutil
++from io import BytesIO
++
++# Set up Django
++import django
++from django.conf import settings
++
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        SECRET_KEY='test-secret-key',
++        MEDIA_ROOT=tempfile.mkdtemp(),
++        FILE_UPLOAD_MAX_MEMORY_SIZE=1024,  # Small size to force temporary file usage
++    )
++
++django.setup()
++
++from django.core.files.storage import default_storage
++from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
++
++def test_file_permissions():
++    print("Testing file upload permissions with the fix...")
++    print(f"FILE_UPLOAD_PERMISSIONS setting: {settings.FILE_UPLOAD_PERMISSIONS} (decimal), {oct(settings.FILE_UPLOAD_PERMISSIONS)} (octal)")
++    print(f"MEDIA_ROOT: {settings.MEDIA_ROOT}")
++    
++    # Test 1: Small file (InMemoryUploadedFile)
++    print("\n=== Test 1: Small file (InMemoryUploadedFile) ===")
++    small_content = b"Small file content"
++    small_file = InMemoryUploadedFile(
++        file=BytesIO(small_content),
++        field_name='test_field',
++        name='small_test.txt',
++        content_type='text/plain',
++        size=len(small_content),
++        charset='utf-8'
++    )
++    
++    small_path = default_storage.save('small_test.txt', small_file)
++    full_small_path = default_storage.path(small_path)
++    small_perms = oct(os.stat(full_small_path).st_mode)[-3:]
++    print(f"Small file saved to: {full_small_path}")
++    print(f"Small file permissions: {small_perms}")
++    
++    # Test 2: Large file (TemporaryUploadedFile)
++    print("\n=== Test 2: Large file (TemporaryUploadedFile) ===")
++    large_content = b"Large file content " * 100  # Make it larger than FILE_UPLOAD_MAX_MEMORY_SIZE
++    
++    # Create a temporary file
++    temp_file = tempfile.NamedTemporaryFile(delete=False)
++    temp_file.write(large_content)
++    temp_file.close()
++    
++    large_file = TemporaryUploadedFile(
++        name='large_test.txt',
++        content_type='text/plain',
++        size=len(large_content),
++        charset='utf-8'
++    )
++    large_file.file = open(temp_file.name, 'rb')
++    large_file.temporary_file_path = lambda: temp_file.name
++    
++    large_path = default_storage.save('large_test.txt', large_file)
++    full_large_path = default_storage.path(large_path)
++    large_perms = oct(os.stat(full_large_path).st_mode)[-3:]
++    print(f"Large file saved to: {full_large_path}")
++    print(f"Large file permissions: {large_perms}")
++    
++    # Test 3: Test with custom FILE_UPLOAD_PERMISSIONS
++    print("\n=== Test 3: Custom FILE_UPLOAD_PERMISSIONS ===")
++    from django.core.files.storage import FileSystemStorage
++    
++    custom_storage = FileSystemStorage(
++        location=settings.MEDIA_ROOT,
++        file_permissions_mode=0o755
++    )
++    
++    custom_content = b"Custom permissions test"
++    custom_file = InMemoryUploadedFile(
++        file=BytesIO(custom_content),
++        field_name='test_field',
++        name='custom_test.txt',
++        content_type='text/plain',
++        size=len(custom_content),
++        charset='utf-8'
++    )
++    
++    custom_path = custom_storage.save('custom_test.txt', custom_file)
++    full_custom_path = custom_storage.path(custom_path)
++    custom_perms = oct(os.stat(full_custom_path).st_mode)[-3:]
++    print(f"Custom file saved to: {full_custom_path}")
++    print(f"Custom file permissions: {custom_perms}")
++    
++    # Check results
++    print(f"\n=== Results ===")
++    print(f"Small file permissions: {small_perms}")
++    print(f"Large file permissions: {large_perms}")
++    print(f"Custom file permissions: {custom_perms}")
++    
++    if small_perms == large_perms == '644':
++        print("✅ SUCCESS: Both small and large files have consistent 644 permissions!")
++    else:
++        print("❌ FAILURE: File permissions are still inconsistent!")
++        
++    if custom_perms == '755':
++        print("✅ SUCCESS: Custom permissions work correctly!")
++    else:
++        print("❌ FAILURE: Custom permissions not working!")
++    
++    # Cleanup
++    large_file.file.close()
++    if os.path.exists(temp_file.name):
++        os.unlink(temp_file.name)
++    shutil.rmtree(settings.MEDIA_ROOT)
++
++if __name__ == '__main__':
++    test_file_permissions()
+\ No newline at end of file

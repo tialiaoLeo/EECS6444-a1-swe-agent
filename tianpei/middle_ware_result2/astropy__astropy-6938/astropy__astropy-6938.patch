@@ -1,0 +1,548 @@
+diff --git a/astropy/io/fits/fitsrec.py b/astropy/io/fits/fitsrec.py
+index 574b4073b1..9188b4c2c5 100644
+--- a/astropy/io/fits/fitsrec.py
++++ b/astropy/io/fits/fitsrec.py
+@@ -1261,7 +1261,7 @@ class FITS_rec(np.recarray):
+ 
+         # Replace exponent separator in floating point numbers
+         if 'D' in format:
+-            output_field.replace(encode_ascii('E'), encode_ascii('D'))
++            output_field[:] = output_field.replace(b'E', b'D')
+ 
+ 
+ def _get_recarray_field(array, key):
+diff --git a/reproduce_bug.py b/reproduce_bug.py
+new file mode 100644
+index 0000000000..1fb39a1f1d
+--- /dev/null
++++ b/reproduce_bug.py
+@@ -0,0 +1,42 @@
++#!/usr/bin/env python3
++
++"""
++Script to reproduce the D exponent bug in astropy.io.fits
++"""
++
++import numpy as np
++from astropy.io import fits
++from astropy.io.fits.util import encode_ascii
++
++def test_d_exponent_bug():
++    """Test the D exponent replacement bug"""
++    
++    # Create a simple test case with a chararray that contains 'E' 
++    # that should be replaced with 'D'
++    test_data = np.array(['1.23E+05', '4.56E-02', '7.89E+10'], dtype='S8')
++    print("Original data:", test_data)
++    print("Data type:", type(test_data))
++    print("Data dtype:", test_data.dtype)
++    
++    # Test the current buggy behavior
++    print("\n=== Testing current buggy behavior ===")
++    result_buggy = np.char.replace(test_data, encode_ascii('E'), encode_ascii('D'))
++    print("Result of np.char.replace() call:", result_buggy)
++    print("Original data after replace() call:", test_data)
++    print("Are they the same object?", result_buggy is test_data)
++    print("Are they equal?", np.array_equal(result_buggy, test_data))
++    
++    # Test the correct behavior
++    print("\n=== Testing correct behavior ===")
++    test_data_copy = test_data.copy()
++    test_data_copy[:] = np.char.replace(test_data_copy, encode_ascii('E'), encode_ascii('D'))
++    print("Result of in-place assignment:", test_data_copy)
++    
++    # Test with bytes directly
++    print("\n=== Testing with bytes directly ===")
++    test_data_copy2 = test_data.copy()
++    test_data_copy2[:] = np.char.replace(test_data_copy2, b'E', b'D')
++    print("Result with bytes:", test_data_copy2)
++
++if __name__ == "__main__":
++    test_d_exponent_bug()
+\ No newline at end of file
+diff --git a/test_ascii_d_exponent.py b/test_ascii_d_exponent.py
+new file mode 100644
+index 0000000000..2736cc00e1
+--- /dev/null
++++ b/test_ascii_d_exponent.py
+@@ -0,0 +1,137 @@
++#!/usr/bin/env python3
++
++"""
++Test script to reproduce the D exponent bug in FITS ASCII tables
++"""
++
++import numpy as np
++from astropy.io import fits
++from astropy.table import Table
++import tempfile
++import os
++
++def test_ascii_d_exponent():
++    """Test D exponent handling in ASCII FITS tables"""
++    
++    # Create test data with floating point numbers that need scientific notation
++    data = [1.23e5, 4.56e-2, 7.89e10, 1.0e-100]
++    
++    print("Original data:", data)
++    
++    # Create a temporary file
++    with tempfile.NamedTemporaryFile(suffix='.fits', delete=False) as tmp:
++        tmp_filename = tmp.name
++    
++    try:
++        # Create ASCII table with D format
++        col = fits.Column(name='float_col', format='D25.16', array=data)
++        cols = fits.ColDefs([col])
++        
++        # Create ASCII table HDU
++        ascii_hdu = fits.TableHDU.from_columns(cols)
++        
++        print("HDU type:", type(ascii_hdu))
++        print("Column definitions type:", type(ascii_hdu.columns))
++        
++        # Get the FITS_rec object
++        fits_rec = ascii_hdu.data
++        print("FITS_rec type:", type(fits_rec))
++        print("Column definitions type:", type(fits_rec._coldefs))
++        
++        # Check if it's an ASCII table
++        from astropy.io.fits.column import _AsciiColDefs
++        is_ascii = isinstance(fits_rec._coldefs, _AsciiColDefs)
++        print("Is ASCII table:", is_ascii)
++        
++        if is_ascii:
++            print("\n=== Testing ASCII table D exponent replacement ===")
++            
++            # Get the raw field before scaling back
++            raw_field = fits_rec._get_raw_data().field(0)
++            print("Raw field type:", type(raw_field))
++            print("Raw field dtype:", raw_field.dtype)
++            print("Raw field before _scale_back:", repr(raw_field))
++            
++            # Manually trigger the _scale_back_ascii method
++            # First, let's see what the converted data looks like
++            converted_field = fits_rec._converted.get('float_col', fits_rec.field('float_col'))
++            print("Converted field:", converted_field)
++            
++            # Now call _scale_back to see if the bug occurs
++            fits_rec._scale_back()
++            
++            # Check the raw field after scaling back
++            raw_field_after = fits_rec._get_raw_data().field(0)
++            print("Raw field after _scale_back:", repr(raw_field_after))
++            
++            # Check for E vs D in the string representation
++            raw_strings = [str(val) for val in raw_field_after]
++            print("Raw field as strings:", raw_strings)
++            
++            has_e = any('E' in s for s in raw_strings)
++            has_d = any('D' in s for s in raw_strings)
++            print(f"Contains 'E': {has_e}")
++            print(f"Contains 'D': {has_d}")
++            
++            if has_e and not has_d:
++                print("BUG CONFIRMED: E exponents were not replaced with D exponents!")
++                return True
++            elif has_d and not has_e:
++                print("SUCCESS: E exponents were correctly replaced with D exponents!")
++                return False
++            else:
++                print("UNCLEAR: Both E and D found, or neither found")
++                return None
++        else:
++            print("Not an ASCII table, cannot test D exponent replacement")
++            return None
++            
++    finally:
++        # Clean up
++        if os.path.exists(tmp_filename):
++            os.unlink(tmp_filename)
++
++def test_direct_chararray_replace():
++    """Test the replace method on chararray directly"""
++    print("\n=== Testing chararray replace method directly ===")
++    
++    # Create a chararray with E exponents
++    from numpy import char as chararray
++    from astropy.io.fits.util import encode_ascii
++    
++    # Create test data
++    test_data = np.array(['1.23E+05', '4.56E-02', '7.89E+10'], dtype='S10')
++    char_array = test_data.view(chararray.chararray)
++    
++    print("Original chararray:", char_array)
++    print("Type:", type(char_array))
++    
++    # Test the buggy behavior (what the current code does)
++    print("\n--- Testing buggy behavior ---")
++    result = char_array.replace(encode_ascii('E'), encode_ascii('D'))
++    print("Result of replace():", result)
++    print("Original after replace():", char_array)
++    print("Same object?", result is char_array)
++    
++    # Test the correct behavior (what it should do)
++    print("\n--- Testing correct behavior ---")
++    char_array_copy = char_array.copy()
++    char_array_copy[:] = char_array_copy.replace(encode_ascii('E'), encode_ascii('D'))
++    print("Result of in-place assignment:", char_array_copy)
++    
++    # Test with bytes directly
++    print("\n--- Testing with bytes directly ---")
++    char_array_copy2 = char_array.copy()
++    char_array_copy2[:] = char_array_copy2.replace(b'E', b'D')
++    print("Result with bytes:", char_array_copy2)
++
++if __name__ == "__main__":
++    test_direct_chararray_replace()
++    bug_confirmed = test_ascii_d_exponent()
++    
++    if bug_confirmed:
++        print("\n*** BUG CONFIRMED ***")
++    elif bug_confirmed is False:
++        print("\n*** NO BUG FOUND ***")
++    else:
++        print("\n*** INCONCLUSIVE ***")
+\ No newline at end of file
+diff --git a/test_fits_d_exponent.py b/test_fits_d_exponent.py
+new file mode 100644
+index 0000000000..607dd0d099
+--- /dev/null
++++ b/test_fits_d_exponent.py
+@@ -0,0 +1,83 @@
++#!/usr/bin/env python3
++
++"""
++Test script to reproduce the D exponent bug in FITS ASCII tables
++"""
++
++import numpy as np
++from astropy.io import fits
++from astropy.table import Table
++import tempfile
++import os
++
++def test_d_exponent_in_fits():
++    """Test D exponent handling in FITS ASCII tables"""
++    
++    # Create test data with floating point numbers that should use D exponents
++    data = Table()
++    data['float_col'] = [1.23e5, 4.56e-2, 7.89e10, 1.0e-100]
++    
++    print("Original data:")
++    print(data)
++    
++    # Create a temporary file
++    with tempfile.NamedTemporaryFile(suffix='.fits', delete=False) as tmp:
++        tmp_filename = tmp.name
++    
++    try:
++        # Write as ASCII table with D format
++        # The 'D' format should use D exponents instead of E exponents
++        col_defs = fits.ColDefs([
++            fits.Column(name='float_col', format='D25.16', array=data['float_col'])
++        ])
++        
++        # Create ASCII table HDU (not binary table)
++        ascii_hdu = fits.TableHDU.from_columns(col_defs)
++        ascii_hdu.writeto(tmp_filename, overwrite=True)
++        
++        # Read it back
++        with fits.open(tmp_filename) as hdul:
++            read_data = hdul[1].data
++            print("\nRead back data:")
++            print(read_data)
++            print("Column format:", hdul[1].columns[0].format)
++            
++        # Now let's test the _scale_back_ascii method directly
++        print("\n=== Testing _scale_back_ascii method directly ===")
++        
++        # Create a FITS_rec object and test the problematic method
++        fits_rec = fits.FITS_rec.from_columns(col_defs)
++        
++        # Get the raw field (this will be a chararray)
++        raw_field = fits_rec._get_raw_data().field(0)
++        print("Raw field type:", type(raw_field))
++        print("Raw field dtype:", raw_field.dtype)
++        print("Raw field before _scale_back:", raw_field)
++        
++        # Call _scale_back to trigger the bug
++        fits_rec._scale_back()
++        
++        # Check the raw field after scaling back
++        raw_field_after = fits_rec._get_raw_data().field(0)
++        print("Raw field after _scale_back:", raw_field_after)
++        
++        # Check if any 'E' characters were replaced with 'D'
++        has_e = any('E' in str(val) for val in raw_field_after)
++        has_d = any('D' in str(val) for val in raw_field_after)
++        print(f"Contains 'E': {has_e}")
++        print(f"Contains 'D': {has_d}")
++        
++        if has_e and not has_d:
++            print("BUG CONFIRMED: E exponents were not replaced with D exponents!")
++        elif has_d and not has_e:
++            print("SUCCESS: E exponents were correctly replaced with D exponents!")
++        else:
++            print("UNCLEAR: Both E and D found, or neither found")
++            
++    finally:
++        # Clean up
++        if os.path.exists(tmp_filename):
++            os.unlink(tmp_filename)
++
++if __name__ == "__main__":
++    test_d_exponent_in_fits()
+\ No newline at end of file
+diff --git a/test_scale_back_ascii.py b/test_scale_back_ascii.py
+new file mode 100644
+index 0000000000..f5bb81db5b
+--- /dev/null
++++ b/test_scale_back_ascii.py
+@@ -0,0 +1,145 @@
++#!/usr/bin/env python3
++
++"""
++Direct test of the _scale_back_ascii method to reproduce the D exponent bug
++"""
++
++import numpy as np
++from astropy.io import fits
++from astropy.io.fits.column import _AsciiColDefs
++from astropy.io.fits.util import encode_ascii
++from numpy import char as chararray
++
++def test_scale_back_ascii_bug():
++    """Test the _scale_back_ascii method directly"""
++    
++    print("=== Testing _scale_back_ascii method directly ===")
++    
++    # Create test data that will require scientific notation
++    input_data = np.array([1.23e5, 4.56e-2, 7.89e10, 1.0e-100])
++    
++    # Create a column with D format
++    col = fits.Column(name='test_col', format='D25.16', array=input_data)
++    coldefs = _AsciiColDefs([col])
++    
++    # Create a FITS_rec object
++    fits_rec = fits.FITS_rec.from_columns(coldefs)
++    
++    print("Input data:", input_data)
++    print("Column format:", col.format)
++    print("Format has D:", 'D' in str(col.format))
++    
++    # Get the raw field (this should be a chararray for ASCII tables)
++    raw_field = fits_rec._get_raw_data().field(0)
++    print("Raw field type:", type(raw_field))
++    print("Raw field dtype:", raw_field.dtype)
++    print("Raw field before:", repr(raw_field))
++    
++    # Create a mock output field that contains E exponents (like what would happen during formatting)
++    # This simulates what happens in the _scale_back_ascii method
++    output_field = np.array(['  1.2300000000000000E+05', '  4.5600000000000001E-02', 
++                            '  7.8900000000000000E+10', '  1.0000000000000000E-100'], 
++                           dtype='S25').view(chararray.chararray)
++    
++    print("\nSimulated output field with E exponents:")
++    print("Type:", type(output_field))
++    print("Content:", output_field)
++    
++    # Test the current buggy behavior
++    print("\n--- Testing current buggy behavior ---")
++    print("Before replace:", output_field)
++    
++    # This is what the current code does (the bug)
++    result = output_field.replace(encode_ascii('E'), encode_ascii('D'))
++    print("Result of replace():", result)
++    print("Original after replace():", output_field)
++    print("Bug confirmed: replace() doesn't modify original:", not np.array_equal(result, output_field))
++    
++    # Test the correct behavior
++    print("\n--- Testing correct behavior ---")
++    output_field_fixed = output_field.copy()
++    output_field_fixed[:] = output_field_fixed.replace(encode_ascii('E'), encode_ascii('D'))
++    print("After correct in-place assignment:", output_field_fixed)
++    
++    # Test with bytes directly (suggested fix)
++    print("\n--- Testing suggested fix with bytes ---")
++    output_field_fixed2 = output_field.copy()
++    output_field_fixed2[:] = output_field_fixed2.replace(b'E', b'D')
++    print("After suggested fix:", output_field_fixed2)
++    
++    return True
++
++def test_actual_fits_scenario():
++    """Test with an actual FITS scenario that triggers the bug"""
++    
++    print("\n=== Testing actual FITS scenario ===")
++    
++    # Create data that will definitely use scientific notation
++    data = np.array([1.23456789e20, 9.87654321e-15, 5.55555555e100])
++    
++    # Create ASCII table
++    col = fits.Column(name='sci_data', format='D25.16', array=data)
++    ascii_hdu = fits.TableHDU.from_columns([col])
++    
++    print("Original data:", data)
++    print("Column format:", col.format)
++    
++    # Get the FITS_rec
++    fits_rec = ascii_hdu.data
++    
++    # Force conversion to trigger the _scale_back process
++    # First access the data to trigger conversion
++    converted_data = fits_rec['sci_data']
++    print("Converted data:", converted_data)
++    
++    # Now modify the data to force a scale back
++    fits_rec['sci_data'][0] = 1.11111111e25  # This should trigger scientific notation
++    
++    print("Modified data:", fits_rec['sci_data'])
++    
++    # Get raw field before scale back
++    raw_before = fits_rec._get_raw_data().field(0)
++    print("Raw field before scale back:", repr(raw_before))
++    
++    # Trigger scale back
++    fits_rec._scale_back()
++    
++    # Get raw field after scale back
++    raw_after = fits_rec._get_raw_data().field(0)
++    print("Raw field after scale back:", repr(raw_after))
++    
++    # Check if it's a string field (ASCII table)
++    if raw_after.dtype.char in ('S', 'U'):
++        # Convert to strings to check for E/D
++        str_values = [val.decode() if isinstance(val, bytes) else str(val) for val in raw_after]
++        print("String values:", str_values)
++        
++        has_e = any('E' in s for s in str_values)
++        has_d = any('D' in s for s in str_values)
++        
++        print(f"Contains E: {has_e}")
++        print(f"Contains D: {has_d}")
++        
++        if has_e and not has_d:
++            print("BUG CONFIRMED: E exponents not replaced with D!")
++            return True
++        elif has_d and not has_e:
++            print("SUCCESS: E exponents correctly replaced with D!")
++            return False
++        else:
++            print("INCONCLUSIVE: No scientific notation found or both E and D present")
++            return None
++    else:
++        print("Not a string field, cannot check E/D replacement")
++        return None
++
++if __name__ == "__main__":
++    test_scale_back_ascii_bug()
++    result = test_actual_fits_scenario()
++    
++    if result is True:
++        print("\n*** BUG CONFIRMED ***")
++    elif result is False:
++        print("\n*** BUG FIXED ***")
++    else:
++        print("\n*** INCONCLUSIVE ***")
+\ No newline at end of file
+diff --git a/test_write_read_ascii.py b/test_write_read_ascii.py
+new file mode 100644
+index 0000000000..c09d294cae
+--- /dev/null
++++ b/test_write_read_ascii.py
+@@ -0,0 +1,93 @@
++#!/usr/bin/env python3
++
++"""
++Test writing and reading ASCII FITS tables to trigger the D exponent bug
++"""
++
++import numpy as np
++from astropy.io import fits
++import tempfile
++import os
++
++def test_write_read_ascii():
++    """Test writing and reading ASCII FITS tables"""
++    
++    # Create data that needs scientific notation
++    data = np.array([1.23456789e20, 9.87654321e-15, 5.55555555e100])
++    
++    print("Original data:", data)
++    
++    # Create ASCII table
++    col = fits.Column(name='sci_data', format='D25.16', array=data)
++    ascii_hdu = fits.TableHDU.from_columns([col])
++    
++    # Create a temporary file
++    with tempfile.NamedTemporaryFile(suffix='.fits', delete=False) as tmp:
++        tmp_filename = tmp.name
++    
++    try:
++        # Write the file
++        ascii_hdu.writeto(tmp_filename, overwrite=True)
++        print("File written successfully")
++        
++        # Read it back
++        with fits.open(tmp_filename) as hdul:
++            read_hdu = hdul[1]
++            read_data = read_hdu.data
++            
++            print("Read HDU type:", type(read_hdu))
++            print("Read data type:", type(read_data))
++            print("Read data:", read_data)
++            print("Column format:", read_hdu.columns[0].format)
++            
++            # Check the raw data
++            raw_data = read_data._get_raw_data()
++            raw_field = raw_data.field(0)
++            
++            print("Raw field type:", type(raw_field))
++            print("Raw field dtype:", raw_field.dtype)
++            print("Raw field content:", repr(raw_field))
++            
++            # Check if it's string data
++            if raw_field.dtype.char in ('S', 'U'):
++                # Convert to strings
++                if raw_field.dtype.char == 'S':
++                    str_values = [val.decode() if isinstance(val, bytes) else str(val) for val in raw_field]
++                else:
++                    str_values = [str(val) for val in raw_field]
++                    
++                print("String values:", str_values)
++                
++                has_e = any('E' in s for s in str_values)
++                has_d = any('D' in s for s in str_values)
++                
++                print(f"Contains E: {has_e}")
++                print(f"Contains D: {has_d}")
++                
++                if has_e and not has_d:
++                    print("BUG CONFIRMED: E exponents not replaced with D!")
++                    return True
++                elif has_d and not has_e:
++                    print("SUCCESS: E exponents correctly replaced with D!")
++                    return False
++                else:
++                    print("INCONCLUSIVE")
++                    return None
++            else:
++                print("Raw field is not string type")
++                return None
++                
++    finally:
++        # Clean up
++        if os.path.exists(tmp_filename):
++            os.unlink(tmp_filename)
++
++if __name__ == "__main__":
++    result = test_write_read_ascii()
++    
++    if result is True:
++        print("\n*** BUG CONFIRMED ***")
++    elif result is False:
++        print("\n*** BUG FIXED ***")
++    else:
++        print("\n*** INCONCLUSIVE ***")
+\ No newline at end of file
