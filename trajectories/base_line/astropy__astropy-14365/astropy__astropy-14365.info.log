@@ -1,0 +1,3088 @@
+2025-10-03 01:44:59,163 - WARNING - swea-lm-astropy__astropy-14365 - Claude 3.7/4 models do not support 128k context by default. Setting max output tokens to 64k. To enable 128k context, please set the completion_kwargs to {'extra_headers': {'anthropic-beta': 'output-128k-2025-02-19'}}.
+2025-10-03 01:44:59,270 - INFO - rex-deploy-astropy__astropy-14365 - Pulling image 'docker.io/swebench/sweb.eval.x86_64.astropy_1776_astropy-14365:latest'
+2025-10-03 01:45:10,619 - INFO - rex-deploy-astropy__astropy-14365 - Building image docker.io/swebench/sweb.eval.x86_64.astropy_1776_astropy-14365:latest to install a standalone python to /root. This might take a while (but you only have to do it once). To skip this step, set `python_standalone_dir` to None.
+2025-10-03 01:45:59,802 - INFO - rex-deploy-astropy__astropy-14365 - Starting container docker.ioswebenchsweb.eval.x86_64.astropy_1776_astropy-14365latest-3e32fa27-9e9c-4b02-9489-d4468ed4b6b8 with image docker.io/swebench/sweb.eval.x86_64.astropy_1776_astropy-14365:latest serving on port 54743
+2025-10-03 01:45:59,803 - INFO - rex-deploy-astropy__astropy-14365 - Starting runtime at 54743
+2025-10-03 01:46:01,085 - INFO - rex-deploy-astropy__astropy-14365 - Runtime started in 1.28s
+2025-10-03 01:46:01,981 - INFO - swea-env-astropy__astropy-14365 - Environment Initialized
+2025-10-03 01:46:02,571 - INFO - swea-agent-astropy__astropy-14365 - Setting up agent for instance astropy__astropy-14365
+2025-10-03 01:46:02,571 - INFO - swea-agent-astropy__astropy-14365 - Trajectory will be saved to /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test/astropy__astropy-14365/astropy__astropy-14365.traj
+2025-10-03 01:46:05,721 - INFO - swea-tools-astropy__astropy-14365 - Resetting tools
+2025-10-03 01:46:06,098 - INFO - swea-agent-astropy__astropy-14365 - SYSTEM (main)
+You are a helpful assistant that can interact with a computer to solve tasks.
+2025-10-03 01:46:06,256 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+<uploaded_files>
+/testbed
+</uploaded_files>
+I've uploaded a python code repository in the directory /testbed. Consider the following PR description:
+
+<pr_description>
+ascii.qdp Table format assumes QDP commands are upper case
+### Description
+
+ascii.qdp assumes that commands in a QDP file are upper case, for example, for errors they must be "READ SERR 1 2" whereas QDP itself is not case sensitive and case use "read serr 1 2". 
+
+As many QDP files are created by hand, the expectation that all commands be all-caps should be removed.
+
+### Expected behavior
+
+The following qdp file should read into a `Table` with errors, rather than crashing.
+```
+read serr 1 2 
+1 0.5 1 0.5
+```
+
+### How to Reproduce
+
+Create a QDP file:
+```
+> cat > test.qdp
+read serr 1 2 
+1 0.5 1 0.5
+<EOF>
+
+ > python
+Python 3.10.9 (main, Dec  7 2022, 02:03:23) [Clang 13.0.0 (clang-1300.0.29.30)] on darwin
+Type "help", "copyright", "credits" or "license" for more information.
+>>> from astropy.table import Table
+>>> Table.read('test.qdp',format='ascii.qdp')
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+Traceback (most recent call last):
+...
+    raise ValueError(f'Unrecognized QDP line: {line}')
+ValueError: Unrecognized QDP line: read serr 1 2
+```
+
+Running "qdp test.qdp" works just fine.
+
+
+### Versions
+
+Python 3.10.9 (main, Dec  7 2022, 02:03:23) [Clang 13.0.0 (clang-1300.0.29.30)]
+astropy 5.1
+Numpy 1.24.1
+pyerfa 2.0.0.1
+Scipy 1.10.0
+Matplotlib 3.6.3
+
+
+</pr_description>
+
+Can you help me implement the necessary changes to the repository so that the requirements specified in the <pr_description> are met?
+I've already taken care of all changes to any of the test files described in the <pr_description>. This means you DON'T have to modify the testing logic or any of the tests in any way!
+Your task is to make the minimal changes to non-tests files in the /testbed directory to ensure the <pr_description> is satisfied.
+Follow these steps to resolve the issue:
+1. As a first step, it might be a good idea to find and read code relevant to the <pr_description>
+2. Create a script to reproduce the error and execute it with `python <filename.py>` using the bash tool, to confirm the error
+3. Edit the sourcecode of the repo to resolve the issue
+4. Rerun your reproduce script and confirm that the error is fixed!
+5. Think about edgecases and make sure your fix handles them as well
+Your thinking should be thorough and so it's fine if it's very long.
+2025-10-03 01:46:06,256 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 1 =========================
+2025-10-03 01:46:10,762 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+I'll help you implement the necessary changes to fix the issue with QDP file format case sensitivity. Let's start by exploring the repository structure and understanding the problem.
+
+🎬 ACTION
+find /testbed -type f -name "*.py" | grep -i qdp | head -20
+2025-10-03 01:46:11,047 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+/testbed/astropy/io/ascii/qdp.py
+/testbed/astropy/io/ascii/tests/test_qdp.py
+
+2025-10-03 01:46:11,048 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 2 =========================
+2025-10-03 01:46:13,823 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+Great! Let's first examine the QDP module to understand how it currently works:
+
+🎬 ACTION
+str_replace_editor view /testbed/astropy/io/ascii/qdp.py
+2025-10-03 01:46:14,346 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+<NOTE>This file is too large to display entirely. Showing abbreviated version. Please use `str_replace_editor view` with the `view_range` parameter to show selected lines next.</NOTE>
+     1 # Licensed under a 3-clause BSD style license - see LICENSE.rst
+     2 """
+     3 This package contains functions for reading and writing QDP tables that are
+     4 not meant to be used directly, but instead are available as readers/writers in
+     5 `astropy.table`. See :ref:`astropy:table_io` for more details.
+     6 """
+     7 import copy
+     8 import re
+     9 import warnings
+    10 from collections.abc import Iterable
+    11 
+    12 import numpy as np
+    13 
+    14 from astropy.table import Table
+    15 from astropy.utils.exceptions import AstropyUserWarning
+    16 
+    17 from . import basic, core
+    18 
+    19 
+    20 def _line_type(line, delimiter=None):
+    21 ... eliding lines 21-85 ...
+    86 
+    87 
+    88 def _get_type_from_list_of_lines(lines, delimiter=None):
+    89 ... eliding lines 89-132 ...
+   133 
+   134 
+   135 def _get_lines_from_file(qdp_file):
+   136 ... eliding lines 136-146 ...
+   147 
+   148 
+   149 def _interpret_err_lines(err_specs, ncols, names=None):
+   150 ... eliding lines 150-234 ...
+   235 
+   236 
+   237 def _get_tables_from_qdp_file(qdp_file, input_colnames=None, delimiter=None):
+   238 ... eliding lines 238-342 ...
+   343 
+   344 
+   345 def _understand_err_col(colnames):
+   346 ... eliding lines 346-382 ...
+   383 
+   384 
+   385 def _read_table_qdp(qdp_file, names=None, table_id=None, delimiter=None):
+   386 ... eliding lines 386-422 ...
+   423 
+   424 
+   425 def _write_table_qdp(table, filename=None, err_specs=None):
+   426 ... eliding lines 426-491 ...
+   492 
+   493 
+   494 class QDPSplitter(core.DefaultSplitter):
+   495     """
+   496     Split on space for QDP tables.
+   497     """
+   498 
+   499     delimiter = " "
+   500 
+   501 
+   502 class QDPHeader(basic.CommentedHeaderHeader):
+   503     """
+   504     Header that uses the :class:`astropy.io.ascii.basic.QDPSplitter`.
+   505     """
+   506 
+   507     splitter_class = QDPSplitter
+   508     comment = "!"
+   509     write_comment = "!"
+   510 
+   511 
+   512 class QDPData(basic.BasicData):
+   513     """
+   514     Data that uses the :class:`astropy.io.ascii.basic.CsvSplitter`.
+   515     """
+   516 
+   517     splitter_class = QDPSplitter
+   518     fill_values = [(core.masked, "NO")]
+   519     comment = "!"
+   520     write_comment = None
+   521 
+   522 
+   523 class QDP(basic.Basic):
+   524     """Quick and Dandy Plot table.
+   525 
+   526     Example::
+   527 
+   528         ! Initial comment line 1
+   529         ! Initial comment line 2
+   530         READ TERR 1
+   531         READ SERR 3
+   532         ! Table 0 comment
+   533         !a a(pos) a(neg) b be c d
+   534         53000.5   0.25  -0.5   1  1.5  3.5 2
+   535         54000.5   1.25  -1.5   2  2.5  4.5 3
+   536         NO NO NO NO NO
+   537         ! Table 1 comment
+   538         !a a(pos) a(neg) b be c d
+   539         54000.5   2.25  -2.5   NO  3.5  5.5 5
+   540         55000.5   3.25  -3.5   4  4.5  6.5 nan
+   541 
+   542     The input table above contains some initial comments, the error commands,
+   543     then two tables.
+   544     This file format can contain multiple tables, separated by a line full
+   545     of ``NO``s. Comments are exclamation marks, and missing values are single
+   546     ``NO`` entries. The delimiter is usually whitespace, more rarely a comma.
+   547     The QDP format differentiates between data and error columns. The table
+   548     above has commands::
+   549 
+   550         READ TERR 1
+   551         READ SERR 3
+   552 
+   553     which mean that after data column 1 there will be two error columns
+   554     containing its positive and engative error bars, then data column 2 without
+   555     error bars, then column 3, then a column with the symmetric error of column
+   556     3, then the remaining data columns.
+   557 
+   558     As explained below, table headers are highly inconsistent. Possible
+   559     comments containing column names will be ignored and columns will be called
+   560     ``col1``, ``col2``, etc. unless the user specifies their names with the
+   561     ``names=`` keyword argument,
+   562     When passing column names, pass **only the names of the data columns, not
+   563     the error columns.**
+   564     Error information will be encoded in the names of the table columns.
+   565     (e.g. ``a_perr`` and ``a_nerr`` for the positive and negative error of
+   566     column ``a``, ``b_err`` the symmetric error of column ``b``.)
+   567 
+   568     When writing tables to this format, users can pass an ``err_specs`` keyword
+   569     passing a dictionary ``{'serr': [3], 'terr': [1, 2]}``, meaning that data
+   570     columns 1 and two will have two additional columns each with their positive
+   571     and negative errors, and data column 3 will have an additional column with
+   572     a symmetric error (just like the ``READ SERR`` and ``READ TERR`` commands
+   573     above)
+   574 
+   575     Headers are just comments, and tables distributed by various missions
+   576     can differ greatly in their use of conventions. For example, light curves
+   577     distributed by the Swift-Gehrels mission have an extra space in one header
+   578     entry that makes the number of labels inconsistent with the number of cols.
+   579     For this reason, we ignore the comments that might encode the column names
+   580     and leave the name specification to the user.
+   581 
+   582     Example::
+   583 
+   584         >               Extra space
+   585         >                   |
+   586         >                   v
+   587         >!     MJD       Err (pos)       Err(neg)        Rate            Error
+   588         >53000.123456   2.378e-05     -2.378472e-05     NO             0.212439
+   589 
+   590     These readers and writer classes will strive to understand which of the
+   591     comments belong to all the tables, and which ones to each single table.
+   592     General comments will be stored in the ``initial_comments`` meta of each
+   593     table. The comments of each table will be stored in the ``comments`` meta.
+   594 
+   595     Example::
+   596 
+   597         t = Table.read(example_qdp, format='ascii.qdp', table_id=1, names=['a', 'b', 'c', 'd'])
+   598 
+   599     reads the second table (``table_id=1``) in file ``example.qdp`` containing
+   600     the table above. There are four column names but seven data columns, why?
+   601     Because the ``READ SERR`` and ``READ TERR`` commands say that there are
+   602     three error columns.
+   603     ``t.meta['initial_comments']`` will contain the initial two comment lines
+   604     in the file, while ``t.meta['comments']`` will contain ``Table 1 comment``
+   605 
+   606     The table can be written to another file, preserving the same information,
+   607     as::
+   608 
+   609         t.write(test_file, err_specs={'terr': [1], 'serr': [3]})
+   610 
+   611     Note how the ``terr`` and ``serr`` commands are passed to the writer.
+   612 
+   613     """
+   614 
+   615     _format_name = "qdp"
+   616     _io_registry_can_write = True
+   617     _io_registry_suffix = ".qdp"
+   618     _description = "Quick and Dandy Plotter"
+   619 
+   620     header_class = QDPHeader
+   621     data_class = QDPData
+   622 
+   623     def __init__(self, table_id=None, names=None, err_specs=None, sep=None):
+   624         super().__init__()
+   625         self.table_id = table_id
+   626         self.names = names
+   627         self.err_specs = err_specs
+   628         self.delimiter = sep
+   629 
+   630     def read(self, table):
+   631 ... eliding lines 631-637 ...
+   638 
+   639     def write(self, table):
+   640         self._check_multidim_table(table)
+   641         lines = _write_table_qdp(table, err_specs=self.err_specs)
+   642         return lines
+<IMPORTANT><NOTE>The above file has been abbreviated. Please use `str_replace editor view` with `view_range` to look at relevant files in detail.</NOTE></IMPORTANT>
+
+2025-10-03 01:46:14,348 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 3 =========================
+2025-10-03 01:46:17,357 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+Now let's look at the `_line_type` function which seems to be responsible for parsing QDP lines:
+
+🎬 ACTION
+str_replace_editor view /testbed/astropy/io/ascii/qdp.py  --view_range 20 85
+2025-10-03 01:46:17,967 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+Here's the result of running `cat -n` on /testbed/astropy/io/ascii/qdp.py:
+    20	def _line_type(line, delimiter=None):
+    21	    """Interpret a QDP file line.
+    22	
+    23	    Parameters
+    24	    ----------
+    25	    line : str
+    26	        a single line of the file
+    27	
+    28	    Returns
+    29	    -------
+    30	    type : str
+    31	        Line type: "comment", "command", or "data"
+    32	
+    33	    Examples
+    34	    --------
+    35	    >>> _line_type("READ SERR 3")
+    36	    'command'
+    37	    >>> _line_type(" \\n    !some gibberish")
+    38	    'comment'
+    39	    >>> _line_type("   ")
+    40	    'comment'
+    41	    >>> _line_type(" 21345.45")
+    42	    'data,1'
+    43	    >>> _line_type(" 21345.45 1.53e-3 1e-3 .04 NO nan")
+    44	    'data,6'
+    45	    >>> _line_type(" 21345.45,1.53e-3,1e-3,.04,NO,nan", delimiter=',')
+    46	    'data,6'
+    47	    >>> _line_type(" 21345.45 ! a comment to disturb")
+    48	    'data,1'
+    49	    >>> _line_type("NO NO NO NO NO")
+    50	    'new'
+    51	    >>> _line_type("NO,NO,NO,NO,NO", delimiter=',')
+    52	    'new'
+    53	    >>> _line_type("N O N NOON OON O")
+    54	    Traceback (most recent call last):
+    55	        ...
+    56	    ValueError: Unrecognized QDP line...
+    57	    >>> _line_type(" some non-comment gibberish")
+    58	    Traceback (most recent call last):
+    59	        ...
+    60	    ValueError: Unrecognized QDP line...
+    61	    """
+    62	    _decimal_re = r"[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?"
+    63	    _command_re = r"READ [TS]ERR(\s+[0-9]+)+"
+    64	
+    65	    sep = delimiter
+    66	    if delimiter is None:
+    67	        sep = r"\s+"
+    68	    _new_re = rf"NO({sep}NO)+"
+    69	    _data_re = rf"({_decimal_re}|NO|[-+]?nan)({sep}({_decimal_re}|NO|[-+]?nan))*)"
+    70	    _type_re = rf"^\s*((?P<command>{_command_re})|(?P<new>{_new_re})|(?P<data>{_data_re})?\s*(\!(?P<comment>.*))?\s*$"
+    71	    _line_type_re = re.compile(_type_re)
+    72	    line = line.strip()
+    73	    if not line:
+    74	        return "comment"
+    75	    match = _line_type_re.match(line)
+    76	
+    77	    if match is None:
+    78	        raise ValueError(f"Unrecognized QDP line: {line}")
+    79	    for type_, val in match.groupdict().items():
+    80	        if val is None:
+    81	            continue
+    82	        if type_ == "data":
+    83	            return f"data,{len(val.split(sep=delimiter))}"
+    84	        else:
+    85	            return type_
+
+
+2025-10-03 01:46:17,981 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 4 =========================
+2025-10-03 01:46:23,641 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+Now I can see the issue! On line 63, there's a regular expression `_command_re = r"READ [TS]ERR(\s+[0-9]+)+"` that only matches uppercase "READ", "TERR", and "SERR". This is the source of the case sensitivity problem.
+
+Let's also look at the test file to understand the expected behavior better:
+
+🎬 ACTION
+str_replace_editor view /testbed/astropy/io/ascii/tests/test_qdp.py  --view_range 1 50
+2025-10-03 01:46:24,062 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+Here's the result of running `cat -n` on /testbed/astropy/io/ascii/tests/test_qdp.py:
+     1	import numpy as np
+     2	import pytest
+     3	
+     4	from astropy.io import ascii
+     5	from astropy.io.ascii.qdp import _get_lines_from_file, _read_table_qdp, _write_table_qdp
+     6	from astropy.table import Column, MaskedColumn, Table
+     7	from astropy.utils.exceptions import AstropyUserWarning
+     8	
+     9	
+    10	def test_get_tables_from_qdp_file(tmp_path):
+    11	    example_qdp = """
+    12	    ! Swift/XRT hardness ratio of trigger: XXXX, name: BUBU X-2
+    13	    ! Columns are as labelled
+    14	    READ TERR 1
+    15	    READ SERR 2
+    16	    ! WT -- hard data
+    17	    !MJD            Err (pos)       Err(neg)        Rate            Error
+    18	    53000.123456 2.37847222222222e-05    -2.37847222222222e-05   -0.212439       0.212439
+    19	    55045.099887 1.14467592592593e-05    -1.14467592592593e-05   0.000000        0.000000
+    20	    NO NO NO NO NO
+    21	    ! WT -- soft data
+    22	    !MJD            Err (pos)       Err(neg)        Rate            Error
+    23	    53000.123456 2.37847222222222e-05    -2.37847222222222e-05   0.726155        0.583890
+    24	    55045.099887 1.14467592592593e-05    -1.14467592592593e-05   2.410935        1.393592
+    25	    NO NO NO NO NO
+    26	    ! WT -- hardness ratio
+    27	    !MJD            Err (pos)       Err(neg)        Rate            Error
+    28	    53000.123456 2.37847222222222e-05    -2.37847222222222e-05   -0.292553       -0.374935
+    29	    55045.099887 1.14467592592593e-05    -1.14467592592593e-05   0.000000        -nan
+    30	    """
+    31	
+    32	    path = tmp_path / "test.qdp"
+    33	
+    34	    with open(path, "w") as fp:
+    35	        print(example_qdp, file=fp)
+    36	
+    37	    table0 = _read_table_qdp(fp.name, names=["MJD", "Rate"], table_id=0)
+    38	    assert table0.meta["initial_comments"][0].startswith("Swift")
+    39	    assert table0.meta["comments"][0].startswith("WT -- hard data")
+    40	    table2 = _read_table_qdp(fp.name, names=["MJD", "Rate"], table_id=2)
+    41	    assert table2.meta["initial_comments"][0].startswith("Swift")
+    42	    assert table2.meta["comments"][0].startswith("WT -- hardness")
+    43	    assert np.isclose(table2["MJD_nerr"][0], -2.37847222222222e-05)
+    44	
+    45	
+    46	def test_roundtrip(tmp_path):
+    47	    example_qdp = """
+    48	    ! Swift/XRT hardness ratio of trigger: XXXX, name: BUBU X-2
+    49	    ! Columns are as labelled
+    50	    READ TERR 1
+
+
+2025-10-03 01:46:24,068 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 5 =========================
+2025-10-03 01:46:30,857 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+Now let's create a script to reproduce the error described in the PR:
+
+🎬 ACTION
+str_replace_editor create /testbed/reproduce_error.py --file_text '#!/usr/bin/env python3
+
+"""Script to reproduce the QDP case sensitivity error."""
+
+import tempfile
+import os
+from astropy.table import Table
+
+# Create a test QDP file with lowercase commands
+test_content = """read serr 1 2 
+1 0.5 1 0.5
+"""
+
+# Write to a temporary file
+with tempfile.NamedTemporaryFile(mode='"'"'w'"'"', suffix='"'"'.qdp'"'"', delete=False) as f:
+    f.write(test_content)
+    temp_file = f.name
+
+try:
+    print("Attempting to read QDP file with lowercase commands...")
+    print(f"File content:\n{test_content}")
+    
+    # This should fail with the current implementation
+    table = Table.read(temp_file, format='"'"'ascii.qdp'"'"')
+    print("SUCCESS: Table read successfully!")
+    print(table)
+    
+except Exception as e:
+    print(f"ERROR: {e}")
+    
+finally:
+    # Clean up
+    os.unlink(temp_file)'
+2025-10-03 01:46:31,214 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+File created successfully at: /testbed/reproduce_error.py
+
+2025-10-03 01:46:31,215 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 6 =========================
+2025-10-03 01:46:33,952 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+
+
+🎬 ACTION
+cd /testbed && python reproduce_error.py
+2025-10-03 01:46:35,153 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+Attempting to read QDP file with lowercase commands...
+File content:
+read serr 1 2 
+1 0.5 1 0.5
+
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+ERROR: Unrecognized QDP line: read serr 1 2
+
+2025-10-03 01:46:35,156 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 7 =========================
+2025-10-03 01:46:38,764 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+Perfect! I've reproduced the error. Now let's examine the code more closely to understand how to fix it. Let's look at the `_get_tables_from_qdp_file` function to see how commands are processed:
+
+🎬 ACTION
+str_replace_editor view /testbed/astropy/io/ascii/qdp.py  --view_range 237 280
+2025-10-03 01:46:39,085 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+Here's the result of running `cat -n` on /testbed/astropy/io/ascii/qdp.py:
+   237	def _get_tables_from_qdp_file(qdp_file, input_colnames=None, delimiter=None):
+   238	    """Get all tables from a QDP file.
+   239	
+   240	    Parameters
+   241	    ----------
+   242	    qdp_file : str
+   243	        Input QDP file name
+   244	
+   245	    Other Parameters
+   246	    ----------------
+   247	    input_colnames : list of str
+   248	        Name of data columns (defaults to ['col1', 'col2', ...]), _not_
+   249	        including error columns.
+   250	    delimiter : str
+   251	        Delimiter for the values in the table.
+   252	
+   253	    Returns
+   254	    -------
+   255	    list of `~astropy.table.Table`
+   256	        List containing all the tables present inside the QDP file
+   257	    """
+   258	    lines = _get_lines_from_file(qdp_file)
+   259	    contents, ncol = _get_type_from_list_of_lines(lines, delimiter=delimiter)
+   260	
+   261	    table_list = []
+   262	    err_specs = {}
+   263	    colnames = None
+   264	
+   265	    comment_text = ""
+   266	    initial_comments = ""
+   267	    command_lines = ""
+   268	    current_rows = None
+   269	
+   270	    for line, datatype in zip(lines, contents):
+   271	        line = line.strip().lstrip("!")
+   272	        # Is this a comment?
+   273	        if datatype == "comment":
+   274	            comment_text += line + "\n"
+   275	            continue
+   276	
+   277	        if datatype == "command":
+   278	            # The first time I find commands, I save whatever comments into
+   279	            # The initial comments.
+   280	            if command_lines == "":
+
+
+2025-10-03 01:46:39,088 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 8 =========================
+2025-10-03 01:46:42,231 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+
+
+🎬 ACTION
+str_replace_editor view /testbed/astropy/io/ascii/qdp.py  --view_range 280 320
+2025-10-03 01:46:42,578 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+Here's the result of running `cat -n` on /testbed/astropy/io/ascii/qdp.py:
+   280	            if command_lines == "":
+   281	                initial_comments = comment_text
+   282	                comment_text = ""
+   283	
+   284	            if err_specs != {}:
+   285	                warnings.warn(
+   286	                    "This file contains multiple command blocks. Please verify",
+   287	                    AstropyUserWarning,
+   288	                )
+   289	            command_lines += line + "\n"
+   290	            continue
+   291	
+   292	        if datatype.startswith("data"):
+   293	            # The first time I find data, I define err_specs
+   294	            if err_specs == {} and command_lines != "":
+   295	                for cline in command_lines.strip().split("\n"):
+   296	                    command = cline.strip().split()
+   297	                    # This should never happen, but just in case.
+   298	                    if len(command) < 3:
+   299	                        continue
+   300	                    err_specs[command[1].lower()] = [int(c) for c in command[2:]]
+   301	            if colnames is None:
+   302	                colnames = _interpret_err_lines(err_specs, ncol, names=input_colnames)
+   303	
+   304	            if current_rows is None:
+   305	                current_rows = []
+   306	
+   307	            values = []
+   308	            for v in line.split(delimiter):
+   309	                if v == "NO":
+   310	                    values.append(np.ma.masked)
+   311	                else:
+   312	                    # Understand if number is int or float
+   313	                    try:
+   314	                        values.append(int(v))
+   315	                    except ValueError:
+   316	                        values.append(float(v))
+   317	            current_rows.append(values)
+   318	            continue
+   319	
+   320	        if datatype == "new":
+
+
+2025-10-03 01:46:42,581 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 9 =========================
+2025-10-03 01:46:47,191 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+I can see that on line 300, the code processes commands by taking `command[1].lower()`, which suggests that the command parsing should be case-insensitive. However, the issue is in the regular expression on line 63 that only matches uppercase commands.
+
+Let's look at the `_interpret_err_lines` function to see how it handles the error specifications:
+
+🎬 ACTION
+str_replace_editor view /testbed/astropy/io/ascii/qdp.py  --view_range 149 200
+2025-10-03 01:46:48,432 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+Here's the result of running `cat -n` on /testbed/astropy/io/ascii/qdp.py:
+   149	def _interpret_err_lines(err_specs, ncols, names=None):
+   150	    """Give list of column names from the READ SERR and TERR commands.
+   151	
+   152	    Parameters
+   153	    ----------
+   154	    err_specs : dict
+   155	        ``{'serr': [n0, n1, ...], 'terr': [n2, n3, ...]}``
+   156	        Error specifications for symmetric and two-sided errors
+   157	    ncols : int
+   158	        Number of data columns
+   159	
+   160	    Other Parameters
+   161	    ----------------
+   162	    names : list of str
+   163	        Name of data columns (defaults to ['col1', 'col2', ...]), _not_
+   164	        including error columns.
+   165	
+   166	    Returns
+   167	    -------
+   168	    colnames : list
+   169	        List containing the column names. Error columns will have the name
+   170	        of the main column plus ``_err`` for symmetric errors, and ``_perr``
+   171	        and ``_nerr`` for positive and negative errors respectively
+   172	
+   173	    Examples
+   174	    --------
+   175	    >>> col_in = ['MJD', 'Rate']
+   176	    >>> cols = _interpret_err_lines(None, 2, names=col_in)
+   177	    >>> cols[0]
+   178	    'MJD'
+   179	    >>> err_specs = {'terr': [1], 'serr': [2]}
+   180	    >>> ncols = 5
+   181	    >>> cols = _interpret_err_lines(err_specs, ncols, names=col_in)
+   182	    >>> cols[0]
+   183	    'MJD'
+   184	    >>> cols[2]
+   185	    'MJD_nerr'
+   186	    >>> cols[4]
+   187	    'Rate_err'
+   188	    >>> _interpret_err_lines(err_specs, 6, names=col_in)
+   189	    Traceback (most recent call last):
+   190	        ...
+   191	    ValueError: Inconsistent number of input colnames
+   192	    """
+   193	    colnames = ["" for i in range(ncols)]
+   194	    if err_specs is None:
+   195	        serr_cols = terr_cols = []
+   196	
+   197	    else:
+   198	        # I don't want to empty the original one when using `pop` below
+   199	        err_specs = copy.deepcopy(err_specs)
+   200	
+
+
+2025-10-03 01:46:48,438 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 10 =========================
+2025-10-03 01:47:10,108 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+Now I understand the issue completely. The problem is in the `_line_type` function where the regular expression `_command_re` only matches uppercase "READ [TS]ERR". The fix is simple: we need to make the regular expression case-insensitive.
+
+Let's fix this by modifying the regular expression to be case-insensitive:
+
+🎬 ACTION
+str_replace_editor str_replace /testbed/astropy/io/ascii/qdp.py   --old_str 'def _line_type(line, delimiter=None):
+    """Interpret a QDP file line.
+
+    Parameters
+    ----------
+    line : str
+        a single line of the file
+
+    Returns
+    -------
+    type : str
+        Line type: "comment", "command", or "data"
+
+    Examples
+    --------
+    >>> _line_type("READ SERR 3")
+    '"'"'command'"'"'
+    >>> _line_type(" \\n    !some gibberish")
+    '"'"'comment'"'"'
+    >>> _line_type("   ")
+    '"'"'comment'"'"'
+    >>> _line_type(" 21345.45")
+    '"'"'data,1'"'"'
+    >>> _line_type(" 21345.45 1.53e-3 1e-3 .04 NO nan")
+    '"'"'data,6'"'"'
+    >>> _line_type(" 21345.45,1.53e-3,1e-3,.04,NO,nan", delimiter='"'"','"'"')
+    '"'"'data,6'"'"'
+    >>> _line_type(" 21345.45 ! a comment to disturb")
+    '"'"'data,1'"'"'
+    >>> _line_type("NO NO NO NO NO")
+    '"'"'new'"'"'
+    >>> _line_type("NO,NO,NO,NO,NO", delimiter='"'"','"'"')
+    '"'"'new'"'"'
+    >>> _line_type("N O N NOON OON O")
+    Traceback (most recent call last):
+        ...
+    ValueError: Unrecognized QDP line...
+    >>> _line_type(" some non-comment gibberish")
+    Traceback (most recent call last):
+        ...
+    ValueError: Unrecognized QDP line...
+    """
+    _decimal_re = r"[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?"
+    _command_re = r"READ [TS]ERR(\s+[0-9]+)+"
+
+    sep = delimiter
+    if delimiter is None:
+        sep = r"\s+"
+    _new_re = rf"NO({sep}NO)+"
+    _data_re = rf"({_decimal_re}|NO|[-+]?nan)({sep}({_decimal_re}|NO|[-+]?nan))*)"
+    _type_re = rf"^\s*((?P<command>{_command_re})|(?P<new>{_new_re})|(?P<data>{_data_re})?\s*(\!(?P<comment>.*))?\s*$"
+    _line_type_re = re.compile(_type_re)
+    line = line.strip()
+    if not line:
+        return "comment"
+    match = _line_type_re.match(line)
+
+    if match is None:
+        raise ValueError(f"Unrecognized QDP line: {line}")
+    for type_, val in match.groupdict().items():
+        if val is None:
+            continue
+        if type_ == "data":
+            return f"data,{len(val.split(sep=delimiter))}"
+        else:
+            return type_' --new_str 'def _line_type(line, delimiter=None):
+    """Interpret a QDP file line.
+
+    Parameters
+    ----------
+    line : str
+        a single line of the file
+
+    Returns
+    -------
+    type : str
+        Line type: "comment", "command", or "data"
+
+    Examples
+    --------
+    >>> _line_type("READ SERR 3")
+    '"'"'command'"'"'
+    >>> _line_type(" \\n    !some gibberish")
+    '"'"'comment'"'"'
+    >>> _line_type("   ")
+    '"'"'comment'"'"'
+    >>> _line_type(" 21345.45")
+    '"'"'data,1'"'"'
+    >>> _line_type(" 21345.45 1.53e-3 1e-3 .04 NO nan")
+    '"'"'data,6'"'"'
+    >>> _line_type(" 21345.45,1.53e-3,1e-3,.04,NO,nan", delimiter='"'"','"'"')
+    '"'"'data,6'"'"'
+    >>> _line_type(" 21345.45 ! a comment to disturb")
+    '"'"'data,1'"'"'
+    >>> _line_type("NO NO NO NO NO")
+    '"'"'new'"'"'
+    >>> _line_type("NO,NO,NO,NO,NO", delimiter='"'"','"'"')
+    '"'"'new'"'"'
+    >>> _line_type("N O N NOON OON O")
+    Traceback (most recent call last):
+        ...
+    ValueError: Unrecognized QDP line...
+    >>> _line_type(" some non-comment gibberish")
+    Traceback (most recent call last):
+        ...
+    ValueError: Unrecognized QDP line...
+    """
+    _decimal_re = r"[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?"
+    _command_re = r"(?i)READ [TS]ERR(\s+[0-9]+)+"
+
+    sep = delimiter
+    if delimiter is None:
+        sep = r"\s+"
+    _new_re = rf"NO({sep}NO)+"
+    _data_re = rf"({_decimal_re}|NO|[-+]?nan)({sep}({_decimal_re}|NO|[-+]?nan))*)"
+    _type_re = rf"^\s*((?P<command>{_command_re})|(?P<new>{_new_re})|(?P<data>{_data_re})?\s*(\!(?P<comment>.*))?\s*$"
+    _line_type_re = re.compile(_type_re)
+    line = line.strip()
+    if not line:
+        return "comment"
+    match = _line_type_re.match(line)
+
+    if match is None:
+        raise ValueError(f"Unrecognized QDP line: {line}")
+    for type_, val in match.groupdict().items():
+        if val is None:
+            continue
+        if type_ == "data":
+            return f"data,{len(val.split(sep=delimiter))}"
+        else:
+            return type_'
+2025-10-03 01:47:10,460 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+The file /testbed/astropy/io/ascii/qdp.py has been edited. Here's the result of running `cat -n` on a snippet of /testbed/astropy/io/ascii/qdp.py:
+    15	from astropy.utils.exceptions import AstropyUserWarning
+    16	
+    17	from . import basic, core
+    18	
+    19	
+    20	def _line_type(line, delimiter=None):
+    21	    """Interpret a QDP file line.
+    22	
+    23	    Parameters
+    24	    ----------
+    25	    line : str
+    26	        a single line of the file
+    27	
+    28	    Returns
+    29	    -------
+    30	    type : str
+    31	        Line type: "comment", "command", or "data"
+    32	
+    33	    Examples
+    34	    --------
+    35	    >>> _line_type("READ SERR 3")
+    36	    'command'
+    37	    >>> _line_type(" \\n    !some gibberish")
+    38	    'comment'
+    39	    >>> _line_type("   ")
+    40	    'comment'
+    41	    >>> _line_type(" 21345.45")
+    42	    'data,1'
+    43	    >>> _line_type(" 21345.45 1.53e-3 1e-3 .04 NO nan")
+    44	    'data,6'
+    45	    >>> _line_type(" 21345.45,1.53e-3,1e-3,.04,NO,nan", delimiter=',')
+    46	    'data,6'
+    47	    >>> _line_type(" 21345.45 ! a comment to disturb")
+    48	    'data,1'
+    49	    >>> _line_type("NO NO NO NO NO")
+    50	    'new'
+    51	    >>> _line_type("NO,NO,NO,NO,NO", delimiter=',')
+    52	    'new'
+    53	    >>> _line_type("N O N NOON OON O")
+    54	    Traceback (most recent call last):
+    55	        ...
+    56	    ValueError: Unrecognized QDP line...
+    57	    >>> _line_type(" some non-comment gibberish")
+    58	    Traceback (most recent call last):
+    59	        ...
+    60	    ValueError: Unrecognized QDP line...
+    61	    """
+    62	    _decimal_re = r"[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?"
+    63	    _command_re = r"(?i)READ [TS]ERR(\s+[0-9]+)+"
+    64	
+    65	    sep = delimiter
+    66	    if delimiter is None:
+    67	        sep = r"\s+"
+    68	    _new_re = rf"NO({sep}NO)+"
+    69	    _data_re = rf"({_decimal_re}|NO|[-+]?nan)({sep}({_decimal_re}|NO|[-+]?nan))*)"
+    70	    _type_re = rf"^\s*((?P<command>{_command_re})|(?P<new>{_new_re})|(?P<data>{_data_re})?\s*(\!(?P<comment>.*))?\s*$"
+    71	    _line_type_re = re.compile(_type_re)
+    72	    line = line.strip()
+    73	    if not line:
+    74	        return "comment"
+    75	    match = _line_type_re.match(line)
+    76	
+    77	    if match is None:
+    78	        raise ValueError(f"Unrecognized QDP line: {line}")
+    79	    for type_, val in match.groupdict().items():
+    80	        if val is None:
+    81	            continue
+    82	        if type_ == "data":
+    83	            return f"data,{len(val.split(sep=delimiter))}"
+    84	        else:
+    85	            return type_
+    86	
+    87	
+    88	def _get_type_from_list_of_lines(lines, delimiter=None):
+Review the changes and make sure they are as expected. Edit the file again if necessary.
+
+2025-10-03 01:47:10,465 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 11 =========================
+2025-10-03 01:47:13,565 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+Great! I've added the `(?i)` flag to make the regular expression case-insensitive. Now let's test our fix:
+
+🎬 ACTION
+cd /testbed && python reproduce_error.py
+2025-10-03 01:47:14,298 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+Attempting to read QDP file with lowercase commands...
+File content:
+read serr 1 2 
+1 0.5 1 0.5
+
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+SUCCESS: Table read successfully!
+col1 col1_err col2 col2_err
+---- -------- ---- --------
+   1      0.5    1      0.5
+
+2025-10-03 01:47:14,306 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 12 =========================
+2025-10-03 01:47:25,203 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+Excellent! The fix works. Now let's create a more comprehensive test to make sure we handle various case combinations:
+
+🎬 ACTION
+str_replace_editor create /testbed/test_case_insensitive.py --file_text '#!/usr/bin/env python3
+
+"""Comprehensive test for QDP case insensitivity."""
+
+import tempfile
+import os
+from astropy.table import Table
+
+# Test various case combinations
+test_cases = [
+    # Original uppercase (should still work)
+    ("READ SERR 1 2\n1 0.5 1 0.5\n", "uppercase READ SERR"),
+    ("READ TERR 1\n1 0.5 0.3\n", "uppercase READ TERR"),
+    
+    # Lowercase (the main issue from the PR)
+    ("read serr 1 2\n1 0.5 1 0.5\n", "lowercase read serr"),
+    ("read terr 1\n1 0.5 0.3\n", "lowercase read terr"),
+    
+    # Mixed case
+    ("Read Serr 1 2\n1 0.5 1 0.5\n", "mixed case Read Serr"),
+    ("READ serr 1 2\n1 0.5 1 0.5\n", "mixed case READ serr"),
+    ("read SERR 1 2\n1 0.5 1 0.5\n", "mixed case read SERR"),
+    ("Read TERR 1\n1 0.5 0.3\n", "mixed case Read TERR"),
+    
+    # All lowercase
+    ("read terr 1\n1 0.5 0.3\n", "all lowercase read terr"),
+]
+
+def test_case(content, description):
+    """Test a single case."""
+    with tempfile.NamedTemporaryFile(mode='"'"'w'"'"', suffix='"'"'.qdp'"'"', delete=False) as f:
+        f.write(content)
+        temp_file = f.name
+    
+    try:
+        print(f"Testing {description}...")
+        table = Table.read(temp_file, format='"'"'ascii.qdp'"'"')
+        print(f"  SUCCESS: {len(table)} rows, {len(table.columns)} columns")
+        return True
+    except Exception as e:
+        print(f"  ERROR: {e}")
+        return False
+    finally:
+        os.unlink(temp_file)
+
+# Run all tests
+print("Testing QDP case insensitivity...")
+print("=" * 50)
+
+success_count = 0
+total_count = len(test_cases)
+
+for content, description in test_cases:
+    if test_case(content, description):
+        success_count += 1
+
+print("=" * 50)
+print(f"Results: {success_count}/{total_count} tests passed")
+
+if success_count == total_count:
+    print("All tests passed! ✅")
+else:
+    print("Some tests failed! ❌")'
+2025-10-03 01:47:25,532 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+File created successfully at: /testbed/test_case_insensitive.py
+
+2025-10-03 01:47:25,539 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 13 =========================
+2025-10-03 01:47:28,161 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+
+
+🎬 ACTION
+cd /testbed && python test_case_insensitive.py
+2025-10-03 01:47:28,820 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+Testing QDP case insensitivity...
+==================================================
+Testing uppercase READ SERR...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+Testing uppercase READ TERR...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 3 columns
+Testing lowercase read serr...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+Testing lowercase read terr...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 3 columns
+Testing mixed case Read Serr...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+Testing mixed case READ serr...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+Testing mixed case read SERR...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+Testing mixed case Read TERR...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 3 columns
+Testing all lowercase read terr...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 3 columns
+==================================================
+Results: 9/9 tests passed
+All tests passed! ✅
+
+2025-10-03 01:47:28,827 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 14 =========================
+2025-10-03 01:47:38,350 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+Perfect! All tests pass. Now let's also test that the doctests in the `_line_type` function still work. Let's add a test for lowercase commands to the doctest:
+
+🎬 ACTION
+str_replace_editor str_replace /testbed/astropy/io/ascii/qdp.py   --old_str '    Examples
+    --------
+    >>> _line_type("READ SERR 3")
+    '"'"'command'"'"'
+    >>> _line_type(" \\n    !some gibberish")
+    '"'"'comment'"'"'
+    >>> _line_type("   ")
+    '"'"'comment'"'"'
+    >>> _line_type(" 21345.45")
+    '"'"'data,1'"'"'
+    >>> _line_type(" 21345.45 1.53e-3 1e-3 .04 NO nan")
+    '"'"'data,6'"'"'
+    >>> _line_type(" 21345.45,1.53e-3,1e-3,.04,NO,nan", delimiter='"'"','"'"')
+    '"'"'data,6'"'"'
+    >>> _line_type(" 21345.45 ! a comment to disturb")
+    '"'"'data,1'"'"'
+    >>> _line_type("NO NO NO NO NO")
+    '"'"'new'"'"'
+    >>> _line_type("NO,NO,NO,NO,NO", delimiter='"'"','"'"')
+    '"'"'new'"'"'
+    >>> _line_type("N O N NOON OON O")
+    Traceback (most recent call last):
+        ...
+    ValueError: Unrecognized QDP line...
+    >>> _line_type(" some non-comment gibberish")
+    Traceback (most recent call last):
+        ...
+    ValueError: Unrecognized QDP line...' --new_str '    Examples
+    --------
+    >>> _line_type("READ SERR 3")
+    '"'"'command'"'"'
+    >>> _line_type("read serr 3")
+    '"'"'command'"'"'
+    >>> _line_type("Read Terr 1 2")
+    '"'"'command'"'"'
+    >>> _line_type(" \\n    !some gibberish")
+    '"'"'comment'"'"'
+    >>> _line_type("   ")
+    '"'"'comment'"'"'
+    >>> _line_type(" 21345.45")
+    '"'"'data,1'"'"'
+    >>> _line_type(" 21345.45 1.53e-3 1e-3 .04 NO nan")
+    '"'"'data,6'"'"'
+    >>> _line_type(" 21345.45,1.53e-3,1e-3,.04,NO,nan", delimiter='"'"','"'"')
+    '"'"'data,6'"'"'
+    >>> _line_type(" 21345.45 ! a comment to disturb")
+    '"'"'data,1'"'"'
+    >>> _line_type("NO NO NO NO NO")
+    '"'"'new'"'"'
+    >>> _line_type("NO,NO,NO,NO,NO", delimiter='"'"','"'"')
+    '"'"'new'"'"'
+    >>> _line_type("N O N NOON OON O")
+    Traceback (most recent call last):
+        ...
+    ValueError: Unrecognized QDP line...
+    >>> _line_type(" some non-comment gibberish")
+    Traceback (most recent call last):
+        ...
+    ValueError: Unrecognized QDP line...'
+2025-10-03 01:47:38,709 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+The file /testbed/astropy/io/ascii/qdp.py has been edited. Here's the result of running `cat -n` on a snippet of /testbed/astropy/io/ascii/qdp.py:
+    28	    Returns
+    29	    -------
+    30	    type : str
+    31	        Line type: "comment", "command", or "data"
+    32	
+    33	    Examples
+    34	    --------
+    35	    >>> _line_type("READ SERR 3")
+    36	    'command'
+    37	    >>> _line_type("read serr 3")
+    38	    'command'
+    39	    >>> _line_type("Read Terr 1 2")
+    40	    'command'
+    41	    >>> _line_type(" \\n    !some gibberish")
+    42	    'comment'
+    43	    >>> _line_type("   ")
+    44	    'comment'
+    45	    >>> _line_type(" 21345.45")
+    46	    'data,1'
+    47	    >>> _line_type(" 21345.45 1.53e-3 1e-3 .04 NO nan")
+    48	    'data,6'
+    49	    >>> _line_type(" 21345.45,1.53e-3,1e-3,.04,NO,nan", delimiter=',')
+    50	    'data,6'
+    51	    >>> _line_type(" 21345.45 ! a comment to disturb")
+    52	    'data,1'
+    53	    >>> _line_type("NO NO NO NO NO")
+    54	    'new'
+    55	    >>> _line_type("NO,NO,NO,NO,NO", delimiter=',')
+    56	    'new'
+    57	    >>> _line_type("N O N NOON OON O")
+    58	    Traceback (most recent call last):
+    59	        ...
+    60	    ValueError: Unrecognized QDP line...
+    61	    >>> _line_type(" some non-comment gibberish")
+    62	    Traceback (most recent call last):
+    63	        ...
+    64	    ValueError: Unrecognized QDP line...
+    65	    """
+    66	    _decimal_re = r"[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?"
+    67	    _command_re = r"(?i)READ [TS]ERR(\s+[0-9]+)+"
+Review the changes and make sure they are as expected. Edit the file again if necessary.
+
+2025-10-03 01:47:38,718 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 15 =========================
+2025-10-03 01:47:41,458 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+Now let's test the doctests to make sure they work:
+
+🎬 ACTION
+cd /testbed && python -m doctest astropy/io/ascii/qdp.py -v
+2025-10-03 01:47:42,159 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+Traceback (most recent call last):
+  File "/opt/miniconda3/envs/testbed/lib/python3.9/runpy.py", line 197, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/opt/miniconda3/envs/testbed/lib/python3.9/runpy.py", line 87, in _run_code
+    exec(code, run_globals)
+  File "/opt/miniconda3/envs/testbed/lib/python3.9/doctest.py", line 2794, in <module>
+    sys.exit(_test())
+  File "/opt/miniconda3/envs/testbed/lib/python3.9/doctest.py", line 2782, in _test
+    m = __import__(filename[:-3])
+  File "/testbed/astropy/io/ascii/qdp.py", line 17, in <module>
+    from . import basic, core
+ImportError: attempted relative import with no known parent package
+
+2025-10-03 01:47:42,171 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 16 =========================
+2025-10-03 01:47:51,816 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+Let's test the doctests in a different way by running them through Python:
+
+🎬 ACTION
+str_replace_editor create /testbed/test_doctests.py --file_text '#!/usr/bin/env python3
+
+"""Test the doctests for the _line_type function."""
+
+from astropy.io.ascii.qdp import _line_type
+
+# Test the examples from the docstring
+print("Testing doctests for _line_type function...")
+
+# Original uppercase tests
+assert _line_type("READ SERR 3") == '"'"'command'"'"'
+print("✅ READ SERR 3 -> command")
+
+# New lowercase tests
+assert _line_type("read serr 3") == '"'"'command'"'"'
+print("✅ read serr 3 -> command")
+
+assert _line_type("Read Terr 1 2") == '"'"'command'"'"'
+print("✅ Read Terr 1 2 -> command")
+
+# Other existing tests
+assert _line_type(" \n    !some gibberish") == '"'"'comment'"'"'
+print("✅ comment line -> comment")
+
+assert _line_type("   ") == '"'"'comment'"'"'
+print("✅ empty line -> comment")
+
+assert _line_type(" 21345.45") == '"'"'data,1'"'"'
+print("✅ single data value -> data,1")
+
+assert _line_type(" 21345.45 1.53e-3 1e-3 .04 NO nan") == '"'"'data,6'"'"'
+print("✅ multiple data values -> data,6")
+
+assert _line_type(" 21345.45,1.53e-3,1e-3,.04,NO,nan", delimiter='"'"','"'"') == '"'"'data,6'"'"'
+print("✅ comma-separated data -> data,6")
+
+assert _line_type(" 21345.45 ! a comment to disturb") == '"'"'data,1'"'"'
+print("✅ data with comment -> data,1")
+
+assert _line_type("NO NO NO NO NO") == '"'"'new'"'"'
+print("✅ NO NO NO... -> new")
+
+assert _line_type("NO,NO,NO,NO,NO", delimiter='"'"','"'"') == '"'"'new'"'"'
+print("✅ NO,NO,NO... -> new")
+
+# Test error cases
+try:
+    _line_type("N O N NOON OON O")
+    assert False, "Should have raised ValueError"
+except ValueError:
+    print("✅ Invalid line raises ValueError")
+
+try:
+    _line_type(" some non-comment gibberish")
+    assert False, "Should have raised ValueError"
+except ValueError:
+    print("✅ Non-comment gibberish raises ValueError")
+
+print("\nAll doctests passed! ✅")'
+2025-10-03 01:47:52,126 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+File created successfully at: /testbed/test_doctests.py
+
+2025-10-03 01:47:52,137 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 17 =========================
+2025-10-03 01:47:54,414 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+
+
+🎬 ACTION
+cd /testbed && python test_doctests.py
+2025-10-03 01:47:55,105 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+Testing doctests for _line_type function...
+✅ READ SERR 3 -> command
+✅ read serr 3 -> command
+✅ Read Terr 1 2 -> command
+✅ comment line -> comment
+✅ empty line -> comment
+✅ single data value -> data,1
+✅ multiple data values -> data,6
+✅ comma-separated data -> data,6
+✅ data with comment -> data,1
+✅ NO NO NO... -> new
+✅ NO,NO,NO... -> new
+✅ Invalid line raises ValueError
+✅ Non-comment gibberish raises ValueError
+
+All doctests passed! ✅
+
+2025-10-03 01:47:55,116 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 18 =========================
+2025-10-03 01:47:57,901 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+Excellent! Now let's run the existing tests to make sure we haven't broken anything:
+
+🎬 ACTION
+cd /testbed && python -m pytest astropy/io/ascii/tests/test_qdp.py -v
+2025-10-03 01:47:59,602 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+<frozen importlib._bootstrap>:228: RuntimeWarning: numpy.ndarray size changed, may indicate binary incompatibility. Expected 80 from C header, got 96 from PyObject
+Internet access disabled
+============================= test session starts ==============================
+platform linux -- Python 3.9.20, pytest-7.4.0, pluggy-1.3.0 -- /opt/miniconda3/envs/testbed/bin/python
+cachedir: .pytest_cache
+hypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True
+
+Running tests with Astropy version 5.3.dev882+g7269fa3e3.d20250910.
+Running tests in astropy/io/ascii/tests/test_qdp.py.
+
+Date: 2025-10-03T05:47:59
+
+Platform: Linux-6.14.0-33-generic-x86_64-with-glibc2.35
+
+Executable: /opt/miniconda3/envs/testbed/bin/python
+
+Full Python Version: 
+3.9.20 (main, Oct  3 2024, 07:27:41) 
+[GCC 11.2.0]
+
+encodings: sys: utf-8, locale: UTF-8, filesystem: utf-8
+byteorder: little
+float info: dig: 15, mant_dig: 15
+
+Package versions: 
+Numpy: 1.25.2
+Scipy: not available
+Matplotlib: not available
+h5py: not available
+Pandas: not available
+PyERFA: 2.0.0.3
+Cython: not available
+Scikit-image: not available
+asdf: not available
+pyarrow: not available
+
+Using Astropy options: remote_data: none.
+
+CI: undefined
+ARCH_ON_CI: undefined
+IS_CRON: undefined
+
+rootdir: /testbed
+configfile: setup.cfg
+plugins: arraydiff-0.5.0, hypothesis-6.82.6, cov-4.1.0, astropy-0.10.0, astropy-header-0.2.2, xdist-3.3.1, remotedata-0.4.0, mock-3.11.1, doctestplus-1.0.0, filter-subpackage-0.1.2, openfiles-0.5.0
+collecting ... collected 8 items                                                              
+
+astropy/io/ascii/tests/test_qdp.py::test_get_tables_from_qdp_file FAILED [ 12%]
+astropy/io/ascii/tests/test_qdp.py::test_roundtrip PASSED                [ 25%]
+astropy/io/ascii/tests/test_qdp.py::test_read_example PASSED             [ 37%]
+astropy/io/ascii/tests/test_qdp.py::test_roundtrip_example PASSED        [ 50%]
+astropy/io/ascii/tests/test_qdp.py::test_roundtrip_example_comma FAILED  [ 62%]
+astropy/io/ascii/tests/test_qdp.py::test_read_write_simple PASSED        [ 75%]
+astropy/io/ascii/tests/test_qdp.py::test_read_write_simple_specify_name PASSED [ 87%]
+astropy/io/ascii/tests/test_qdp.py::test_get_lines_from_qdp PASSED       [100%]
+
+=================================== FAILURES ===================================
+________________________ test_get_tables_from_qdp_file _________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_get_tables_from_qdp_file0')
+
+    def test_get_tables_from_qdp_file(tmp_path):
+        example_qdp = """
+        ! Swift/XRT hardness ratio of trigger: XXXX, name: BUBU X-2
+        ! Columns are as labelled
+        READ TERR 1
+        READ SERR 2
+        ! WT -- hard data
+        !MJD            Err (pos)       Err(neg)        Rate            Error
+        53000.123456 2.37847222222222e-05    -2.37847222222222e-05   -0.212439       0.212439
+        55045.099887 1.14467592592593e-05    -1.14467592592593e-05   0.000000        0.000000
+        NO NO NO NO NO
+        ! WT -- soft data
+        !MJD            Err (pos)       Err(neg)        Rate            Error
+        53000.123456 2.37847222222222e-05    -2.37847222222222e-05   0.726155        0.583890
+        55045.099887 1.14467592592593e-05    -1.14467592592593e-05   2.410935        1.393592
+        NO NO NO NO NO
+        ! WT -- hardness ratio
+        !MJD            Err (pos)       Err(neg)        Rate            Error
+        53000.123456 2.37847222222222e-05    -2.37847222222222e-05   -0.292553       -0.374935
+        55045.099887 1.14467592592593e-05    -1.14467592592593e-05   0.000000        -nan
+        """
+    
+        path = tmp_path / "test.qdp"
+    
+        with open(path, "w") as fp:
+            print(example_qdp, file=fp)
+    
+>       table0 = _read_table_qdp(fp.name, names=["MJD", "Rate"], table_id=0)
+
+astropy/io/ascii/tests/test_qdp.py:37: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+astropy/io/ascii/qdp.py:422: in _read_table_qdp
+    tables = _get_tables_from_qdp_file(
+astropy/io/ascii/qdp.py:263: in _get_tables_from_qdp_file
+    contents, ncol = _get_type_from_list_of_lines(lines, delimiter=delimiter)
+astropy/io/ascii/qdp.py:126: in _get_type_from_list_of_lines
+    types = [_line_type(line, delimiter=delimiter) for line in lines]
+astropy/io/ascii/qdp.py:126: in <listcomp>
+    types = [_line_type(line, delimiter=delimiter) for line in lines]
+astropy/io/ascii/qdp.py:75: in _line_type
+    _line_type_re = re.compile(_type_re)
+/opt/miniconda3/envs/testbed/lib/python3.9/re.py:252: in compile
+    return _compile(pattern, flags)
+/opt/miniconda3/envs/testbed/lib/python3.9/re.py:304: in _compile
+    p = sre_compile.compile(pattern, flags)
+/opt/miniconda3/envs/testbed/lib/python3.9/sre_compile.py:788: in compile
+    p = sre_parse.parse(p, flags)
+/opt/miniconda3/envs/testbed/lib/python3.9/sre_parse.py:955: in parse
+    p = _parse_sub(source, state, flags & SRE_FLAG_VERBOSE, 0)
+/opt/miniconda3/envs/testbed/lib/python3.9/sre_parse.py:444: in _parse_sub
+    itemsappend(_parse(source, state, verbose, nested + 1,
+/opt/miniconda3/envs/testbed/lib/python3.9/sre_parse.py:841: in _parse
+    p = _parse_sub(source, state, sub_verbose, nested + 1)
+/opt/miniconda3/envs/testbed/lib/python3.9/sre_parse.py:444: in _parse_sub
+    itemsappend(_parse(source, state, verbose, nested + 1,
+/opt/miniconda3/envs/testbed/lib/python3.9/sre_parse.py:841: in _parse
+    p = _parse_sub(source, state, sub_verbose, nested + 1)
+/opt/miniconda3/envs/testbed/lib/python3.9/sre_parse.py:444: in _parse_sub
+    itemsappend(_parse(source, state, verbose, nested + 1,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+source = <sre_parse.Tokenizer object at 0x776ec0f84e50>
+state = <sre_parse.State object at 0x776ec0f84fa0>, verbose = 0, nested = 5
+first = False
+
+    def _parse(source, state, verbose, nested, first=False):
+        # parse a simple pattern
+        subpattern = SubPattern(state)
+    
+        # precompute constants into local variables
+        subpatternappend = subpattern.append
+        sourceget = source.get
+        sourcematch = source.match
+        _len = len
+        _ord = ord
+    
+        while True:
+    
+            this = source.next
+            if this is None:
+                break # end of pattern
+            if this in "|)":
+                break # end of subpattern
+            sourceget()
+    
+            if verbose:
+                # skip whitespace and comments
+                if this in WHITESPACE:
+                    continue
+                if this == "#":
+                    while True:
+                        this = sourceget()
+                        if this is None or this == "\n":
+                            break
+                    continue
+    
+            if this[0] == "\\":
+                code = _escape(source, this, state)
+                subpatternappend(code)
+    
+            elif this not in SPECIAL_CHARS:
+                subpatternappend((LITERAL, _ord(this)))
+    
+            elif this == "[":
+                here = source.tell() - 1
+                # character set
+                set = []
+                setappend = set.append
+    ##          if sourcematch(":"):
+    ##              pass # handle character classes
+                if source.next == '[':
+                    import warnings
+                    warnings.warn(
+                        'Possible nested set at position %d' % source.tell(),
+                        FutureWarning, stacklevel=nested + 6
+                    )
+                negate = sourcematch("^")
+                # check remaining characters
+                while True:
+                    this = sourceget()
+                    if this is None:
+                        raise source.error("unterminated character set",
+                                           source.tell() - here)
+                    if this == "]" and set:
+                        break
+                    elif this[0] == "\\":
+                        code1 = _class_escape(source, this)
+                    else:
+                        if set and this in '-&~|' and source.next == this:
+                            import warnings
+                            warnings.warn(
+                                'Possible set %s at position %d' % (
+                                    'difference' if this == '-' else
+                                    'intersection' if this == '&' else
+                                    'symmetric difference' if this == '~' else
+                                    'union',
+                                    source.tell() - 1),
+                                FutureWarning, stacklevel=nested + 6
+                            )
+                        code1 = LITERAL, _ord(this)
+                    if sourcematch("-"):
+                        # potential range
+                        that = sourceget()
+                        if that is None:
+                            raise source.error("unterminated character set",
+                                               source.tell() - here)
+                        if that == "]":
+                            if code1[0] is IN:
+                                code1 = code1[1][0]
+                            setappend(code1)
+                            setappend((LITERAL, _ord("-")))
+                            break
+                        if that[0] == "\\":
+                            code2 = _class_escape(source, that)
+                        else:
+                            if that == '-':
+                                import warnings
+                                warnings.warn(
+                                    'Possible set difference at position %d' % (
+                                        source.tell() - 2),
+                                    FutureWarning, stacklevel=nested + 6
+                                )
+                            code2 = LITERAL, _ord(that)
+                        if code1[0] != LITERAL or code2[0] != LITERAL:
+                            msg = "bad character range %s-%s" % (this, that)
+                            raise source.error(msg, len(this) + 1 + len(that))
+                        lo = code1[1]
+                        hi = code2[1]
+                        if hi < lo:
+                            msg = "bad character range %s-%s" % (this, that)
+                            raise source.error(msg, len(this) + 1 + len(that))
+                        setappend((RANGE, (lo, hi)))
+                    else:
+                        if code1[0] is IN:
+                            code1 = code1[1][0]
+                        setappend(code1)
+    
+                set = _uniq(set)
+                # XXX: <fl> should move set optimization to compiler!
+                if _len(set) == 1 and set[0][0] is LITERAL:
+                    # optimization
+                    if negate:
+                        subpatternappend((NOT_LITERAL, set[0][1]))
+                    else:
+                        subpatternappend(set[0])
+                else:
+                    if negate:
+                        set.insert(0, (NEGATE, None))
+                    # charmap optimization can't be added here because
+                    # global flags still are not known
+                    subpatternappend((IN, set))
+    
+            elif this in REPEAT_CHARS:
+                # repeat previous item
+                here = source.tell()
+                if this == "?":
+                    min, max = 0, 1
+                elif this == "*":
+                    min, max = 0, MAXREPEAT
+    
+                elif this == "+":
+                    min, max = 1, MAXREPEAT
+                elif this == "{":
+                    if source.next == "}":
+                        subpatternappend((LITERAL, _ord(this)))
+                        continue
+    
+                    min, max = 0, MAXREPEAT
+                    lo = hi = ""
+                    while source.next in DIGITS:
+                        lo += sourceget()
+                    if sourcematch(","):
+                        while source.next in DIGITS:
+                            hi += sourceget()
+                    else:
+                        hi = lo
+                    if not sourcematch("}"):
+                        subpatternappend((LITERAL, _ord(this)))
+                        source.seek(here)
+                        continue
+    
+                    if lo:
+                        min = int(lo)
+                        if min >= MAXREPEAT:
+                            raise OverflowError("the repetition number is too large")
+                    if hi:
+                        max = int(hi)
+                        if max >= MAXREPEAT:
+                            raise OverflowError("the repetition number is too large")
+                        if max < min:
+                            raise source.error("min repeat greater than max repeat",
+                                               source.tell() - here)
+                else:
+                    raise AssertionError("unsupported quantifier %r" % (char,))
+                # figure out which item to repeat
+                if subpattern:
+                    item = subpattern[-1:]
+                else:
+                    item = None
+                if not item or item[0][0] is AT:
+                    raise source.error("nothing to repeat",
+                                       source.tell() - here + len(this))
+                if item[0][0] in _REPEATCODES:
+                    raise source.error("multiple repeat",
+                                       source.tell() - here + len(this))
+                if item[0][0] is SUBPATTERN:
+                    group, add_flags, del_flags, p = item[0][1]
+                    if group is None and not add_flags and not del_flags:
+                        item = p
+                if sourcematch("?"):
+                    subpattern[-1] = (MIN_REPEAT, (min, max, item))
+                else:
+                    subpattern[-1] = (MAX_REPEAT, (min, max, item))
+    
+            elif this == ".":
+                subpatternappend((ANY, None))
+    
+            elif this == "(":
+                start = source.tell() - 1
+                group = True
+                name = None
+                add_flags = 0
+                del_flags = 0
+                if sourcematch("?"):
+                    # options
+                    char = sourceget()
+                    if char is None:
+                        raise source.error("unexpected end of pattern")
+                    if char == "P":
+                        # python extensions
+                        if sourcematch("<"):
+                            # named group: skip forward to end of name
+                            name = source.getuntil(">", "group name")
+                            if not name.isidentifier():
+                                msg = "bad character in group name %r" % name
+                                raise source.error(msg, len(name) + 1)
+                        elif sourcematch("="):
+                            # named backreference
+                            name = source.getuntil(")", "group name")
+                            if not name.isidentifier():
+                                msg = "bad character in group name %r" % name
+                                raise source.error(msg, len(name) + 1)
+                            gid = state.groupdict.get(name)
+                            if gid is None:
+                                msg = "unknown group name %r" % name
+                                raise source.error(msg, len(name) + 1)
+                            if not state.checkgroup(gid):
+                                raise source.error("cannot refer to an open group",
+                                                   len(name) + 1)
+                            state.checklookbehindgroup(gid, source)
+                            subpatternappend((GROUPREF, gid))
+                            continue
+    
+                        else:
+                            char = sourceget()
+                            if char is None:
+                                raise source.error("unexpected end of pattern")
+                            raise source.error("unknown extension ?P" + char,
+                                               len(char) + 2)
+                    elif char == ":":
+                        # non-capturing group
+                        group = None
+                    elif char == "#":
+                        # comment
+                        while True:
+                            if source.next is None:
+                                raise source.error("missing ), unterminated comment",
+                                                   source.tell() - start)
+                            if sourceget() == ")":
+                                break
+                        continue
+    
+                    elif char in "=!<":
+                        # lookahead assertions
+                        dir = 1
+                        if char == "<":
+                            char = sourceget()
+                            if char is None:
+                                raise source.error("unexpected end of pattern")
+                            if char not in "=!":
+                                raise source.error("unknown extension ?<" + char,
+                                                   len(char) + 2)
+                            dir = -1 # lookbehind
+                            lookbehindgroups = state.lookbehindgroups
+                            if lookbehindgroups is None:
+                                state.lookbehindgroups = state.groups
+                        p = _parse_sub(source, state, verbose, nested + 1)
+                        if dir < 0:
+                            if lookbehindgroups is None:
+                                state.lookbehindgroups = None
+                        if not sourcematch(")"):
+                            raise source.error("missing ), unterminated subpattern",
+                                               source.tell() - start)
+                        if char == "=":
+                            subpatternappend((ASSERT, (dir, p)))
+                        else:
+                            subpatternappend((ASSERT_NOT, (dir, p)))
+                        continue
+    
+                    elif char == "(":
+                        # conditional backreference group
+                        condname = source.getuntil(")", "group name")
+                        if condname.isidentifier():
+                            condgroup = state.groupdict.get(condname)
+                            if condgroup is None:
+                                msg = "unknown group name %r" % condname
+                                raise source.error(msg, len(condname) + 1)
+                        else:
+                            try:
+                                condgroup = int(condname)
+                                if condgroup < 0:
+                                    raise ValueError
+                            except ValueError:
+                                msg = "bad character in group name %r" % condname
+                                raise source.error(msg, len(condname) + 1) from None
+                            if not condgroup:
+                                raise source.error("bad group number",
+                                                   len(condname) + 1)
+                            if condgroup >= MAXGROUPS:
+                                msg = "invalid group reference %d" % condgroup
+                                raise source.error(msg, len(condname) + 1)
+                            if condgroup not in state.grouprefpos:
+                                state.grouprefpos[condgroup] = (
+                                    source.tell() - len(condname) - 1
+                                )
+                        state.checklookbehindgroup(condgroup, source)
+                        item_yes = _parse(source, state, verbose, nested + 1)
+                        if source.match("|"):
+                            item_no = _parse(source, state, verbose, nested + 1)
+                            if source.next == "|":
+                                raise source.error("conditional backref with more than two branches")
+                        else:
+                            item_no = None
+                        if not source.match(")"):
+                            raise source.error("missing ), unterminated subpattern",
+                                               source.tell() - start)
+                        subpatternappend((GROUPREF_EXISTS, (condgroup, item_yes, item_no)))
+                        continue
+    
+                    elif char in FLAGS or char == "-":
+                        # flags
+                        flags = _parse_flags(source, state, char)
+                        if flags is None:  # global flags
+                            if not first or subpattern:
+                                import warnings
+>                               warnings.warn(
+                                    'Flags not at the start of the expression %r%s'
+                                    ' but at position %d' % (
+                                        source.string[:20],  # truncate long regexes
+                                        ' (truncated)' if len(source.string) > 20 else '',
+                                        start,
+                                    ),
+                                    DeprecationWarning, stacklevel=nested + 6
+                                )
+E                               DeprecationWarning: Flags not at the start of the expression '^\\s*((?P<command>(?i' (truncated) but at position 17
+
+/opt/miniconda3/envs/testbed/lib/python3.9/sre_parse.py:814: DeprecationWarning
+_________________________ test_roundtrip_example_comma _________________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_roundtrip_example_comma0')
+
+    def test_roundtrip_example_comma(tmp_path):
+        example_qdp = """
+            ! Initial comment line 1
+            ! Initial comment line 2
+            READ TERR 1
+            READ SERR 3
+            ! Table 0 comment
+            !a,a(pos),a(neg),b,c,ce,d
+            53000.5,0.25,-0.5,1,1.5,3.5,2
+            54000.5,1.25,-1.5,2,2.5,4.5,3
+            NO,NO,NO,NO,NO
+            ! Table 1 comment
+            !a,a(pos),a(neg),b,c,ce,d
+            54000.5,2.25,-2.5,NO,3.5,5.5,5
+            55000.5,3.25,-3.5,4,4.5,6.5,nan
+            """
+        test_file = tmp_path / "test.qdp"
+    
+>       t = Table.read(
+            example_qdp, format="ascii.qdp", table_id=1, names=["a", "b", "c", "d"], sep=","
+        )
+
+astropy/io/ascii/tests/test_qdp.py:188: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+astropy/table/connect.py:62: in __call__
+    out = self.registry.read(cls, *args, **kwargs)
+astropy/io/registry/core.py:218: in read
+    data = reader(*args, **kwargs)
+astropy/io/ascii/connect.py:19: in io_read
+    return read(filename, **kwargs)
+astropy/io/ascii/ui.py:426: in read
+    dat = reader.read(table)
+astropy/io/ascii/qdp.py:636: in read
+    return _read_table_qdp(
+astropy/io/ascii/qdp.py:422: in _read_table_qdp
+    tables = _get_tables_from_qdp_file(
+astropy/io/ascii/qdp.py:263: in _get_tables_from_qdp_file
+    contents, ncol = _get_type_from_list_of_lines(lines, delimiter=delimiter)
+astropy/io/ascii/qdp.py:126: in _get_type_from_list_of_lines
+    types = [_line_type(line, delimiter=delimiter) for line in lines]
+astropy/io/ascii/qdp.py:126: in <listcomp>
+    types = [_line_type(line, delimiter=delimiter) for line in lines]
+astropy/io/ascii/qdp.py:75: in _line_type
+    _line_type_re = re.compile(_type_re)
+/opt/miniconda3/envs/testbed/lib/python3.9/re.py:252: in compile
+    return _compile(pattern, flags)
+/opt/miniconda3/envs/testbed/lib/python3.9/re.py:304: in _compile
+    p = sre_compile.compile(pattern, flags)
+/opt/miniconda3/envs/testbed/lib/python3.9/sre_compile.py:788: in compile
+    p = sre_parse.parse(p, flags)
+/opt/miniconda3/envs/testbed/lib/python3.9/sre_parse.py:955: in parse
+    p = _parse_sub(source, state, flags & SRE_FLAG_VERBOSE, 0)
+/opt/miniconda3/envs/testbed/lib/python3.9/sre_parse.py:444: in _parse_sub
+    itemsappend(_parse(source, state, verbose, nested + 1,
+/opt/miniconda3/envs/testbed/lib/python3.9/sre_parse.py:841: in _parse
+    p = _parse_sub(source, state, sub_verbose, nested + 1)
+/opt/miniconda3/envs/testbed/lib/python3.9/sre_parse.py:444: in _parse_sub
+    itemsappend(_parse(source, state, verbose, nested + 1,
+/opt/miniconda3/envs/testbed/lib/python3.9/sre_parse.py:841: in _parse
+    p = _parse_sub(source, state, sub_verbose, nested + 1)
+/opt/miniconda3/envs/testbed/lib/python3.9/sre_parse.py:444: in _parse_sub
+    itemsappend(_parse(source, state, verbose, nested + 1,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+source = <sre_parse.Tokenizer object at 0x776ed1d8a8e0>
+state = <sre_parse.State object at 0x776ed1d8a400>, verbose = 0, nested = 5
+first = False
+
+    def _parse(source, state, verbose, nested, first=False):
+        # parse a simple pattern
+        subpattern = SubPattern(state)
+    
+        # precompute constants into local variables
+        subpatternappend = subpattern.append
+        sourceget = source.get
+        sourcematch = source.match
+        _len = len
+        _ord = ord
+    
+        while True:
+    
+            this = source.next
+            if this is None:
+                break # end of pattern
+            if this in "|)":
+                break # end of subpattern
+            sourceget()
+    
+            if verbose:
+                # skip whitespace and comments
+                if this in WHITESPACE:
+                    continue
+                if this == "#":
+                    while True:
+                        this = sourceget()
+                        if this is None or this == "\n":
+                            break
+                    continue
+    
+            if this[0] == "\\":
+                code = _escape(source, this, state)
+                subpatternappend(code)
+    
+            elif this not in SPECIAL_CHARS:
+                subpatternappend((LITERAL, _ord(this)))
+    
+            elif this == "[":
+                here = source.tell() - 1
+                # character set
+                set = []
+                setappend = set.append
+    ##          if sourcematch(":"):
+    ##              pass # handle character classes
+                if source.next == '[':
+                    import warnings
+                    warnings.warn(
+                        'Possible nested set at position %d' % source.tell(),
+                        FutureWarning, stacklevel=nested + 6
+                    )
+                negate = sourcematch("^")
+                # check remaining characters
+                while True:
+                    this = sourceget()
+                    if this is None:
+                        raise source.error("unterminated character set",
+                                           source.tell() - here)
+                    if this == "]" and set:
+                        break
+                    elif this[0] == "\\":
+                        code1 = _class_escape(source, this)
+                    else:
+                        if set and this in '-&~|' and source.next == this:
+                            import warnings
+                            warnings.warn(
+                                'Possible set %s at position %d' % (
+                                    'difference' if this == '-' else
+                                    'intersection' if this == '&' else
+                                    'symmetric difference' if this == '~' else
+                                    'union',
+                                    source.tell() - 1),
+                                FutureWarning, stacklevel=nested + 6
+                            )
+                        code1 = LITERAL, _ord(this)
+                    if sourcematch("-"):
+                        # potential range
+                        that = sourceget()
+                        if that is None:
+                            raise source.error("unterminated character set",
+                                               source.tell() - here)
+                        if that == "]":
+                            if code1[0] is IN:
+                                code1 = code1[1][0]
+                            setappend(code1)
+                            setappend((LITERAL, _ord("-")))
+                            break
+                        if that[0] == "\\":
+                            code2 = _class_escape(source, that)
+                        else:
+                            if that == '-':
+                                import warnings
+                                warnings.warn(
+                                    'Possible set difference at position %d' % (
+                                        source.tell() - 2),
+                                    FutureWarning, stacklevel=nested + 6
+                                )
+                            code2 = LITERAL, _ord(that)
+                        if code1[0] != LITERAL or code2[0] != LITERAL:
+                            msg = "bad character range %s-%s" % (this, that)
+                            raise source.error(msg, len(this) + 1 + len(that))
+                        lo = code1[1]
+                        hi = code2[1]
+                        if hi < lo:
+                            msg = "bad character range %s-%s" % (this, that)
+                            raise source.error(msg, len(this) + 1 + len(that))
+                        setappend((RANGE, (lo, hi)))
+                    else:
+                        if code1[0] is IN:
+                            code1 = code1[1][0]
+                        setappend(code1)
+    
+                set = _uniq(set)
+                # XXX: <fl> should move set optimization to compiler!
+                if _len(set) == 1 and set[0][0] is LITERAL:
+                    # optimization
+                    if negate:
+                        subpatternappend((NOT_LITERAL, set[0][1]))
+                    else:
+                        subpatternappend(set[0])
+                else:
+                    if negate:
+                        set.insert(0, (NEGATE, None))
+                    # charmap optimization can't be added here because
+                    # global flags still are not known
+                    subpatternappend((IN, set))
+    
+            elif this in REPEAT_CHARS:
+                # repeat previous item
+                here = source.tell()
+                if this == "?":
+                    min, max = 0, 1
+                elif this == "*":
+                    min, max = 0, MAXREPEAT
+    
+                elif this == "+":
+                    min, max = 1, MAXREPEAT
+                elif this == "{":
+                    if source.next == "}":
+                        subpatternappend((LITERAL, _ord(this)))
+                        continue
+    
+                    min, max = 0, MAXREPEAT
+                    lo = hi = ""
+                    while source.next in DIGITS:
+                        lo += sourceget()
+                    if sourcematch(","):
+                        while source.next in DIGITS:
+                            hi += sourceget()
+                    else:
+                        hi = lo
+                    if not sourcematch("}"):
+                        subpatternappend((LITERAL, _ord(this)))
+                        source.seek(here)
+                        continue
+    
+                    if lo:
+                        min = int(lo)
+                        if min >= MAXREPEAT:
+                            raise OverflowError("the repetition number is too large")
+                    if hi:
+                        max = int(hi)
+                        if max >= MAXREPEAT:
+                            raise OverflowError("the repetition number is too large")
+                        if max < min:
+                            raise source.error("min repeat greater than max repeat",
+                                               source.tell() - here)
+                else:
+                    raise AssertionError("unsupported quantifier %r" % (char,))
+                # figure out which item to repeat
+                if subpattern:
+                    item = subpattern[-1:]
+                else:
+                    item = None
+                if not item or item[0][0] is AT:
+                    raise source.error("nothing to repeat",
+                                       source.tell() - here + len(this))
+                if item[0][0] in _REPEATCODES:
+                    raise source.error("multiple repeat",
+                                       source.tell() - here + len(this))
+                if item[0][0] is SUBPATTERN:
+                    group, add_flags, del_flags, p = item[0][1]
+                    if group is None and not add_flags and not del_flags:
+                        item = p
+                if sourcematch("?"):
+                    subpattern[-1] = (MIN_REPEAT, (min, max, item))
+                else:
+                    subpattern[-1] = (MAX_REPEAT, (min, max, item))
+    
+            elif this == ".":
+                subpatternappend((ANY, None))
+    
+            elif this == "(":
+                start = source.tell() - 1
+                group = True
+                name = None
+                add_flags = 0
+                del_flags = 0
+                if sourcematch("?"):
+                    # options
+                    char = sourceget()
+                    if char is None:
+                        raise source.error("unexpected end of pattern")
+                    if char == "P":
+                        # python extensions
+                        if sourcematch("<"):
+                            # named group: skip forward to end of name
+                            name = source.getuntil(">", "group name")
+                            if not name.isidentifier():
+                                msg = "bad character in group name %r" % name
+                                raise source.error(msg, len(name) + 1)
+                        elif sourcematch("="):
+                            # named backreference
+                            name = source.getuntil(")", "group name")
+                            if not name.isidentifier():
+                                msg = "bad character in group name %r" % name
+                                raise source.error(msg, len(name) + 1)
+                            gid = state.groupdict.get(name)
+                            if gid is None:
+                                msg = "unknown group name %r" % name
+                                raise source.error(msg, len(name) + 1)
+                            if not state.checkgroup(gid):
+                                raise source.error("cannot refer to an open group",
+                                                   len(name) + 1)
+                            state.checklookbehindgroup(gid, source)
+                            subpatternappend((GROUPREF, gid))
+                            continue
+    
+                        else:
+                            char = sourceget()
+                            if char is None:
+                                raise source.error("unexpected end of pattern")
+                            raise source.error("unknown extension ?P" + char,
+                                               len(char) + 2)
+                    elif char == ":":
+                        # non-capturing group
+                        group = None
+                    elif char == "#":
+                        # comment
+                        while True:
+                            if source.next is None:
+                                raise source.error("missing ), unterminated comment",
+                                                   source.tell() - start)
+                            if sourceget() == ")":
+                                break
+                        continue
+    
+                    elif char in "=!<":
+                        # lookahead assertions
+                        dir = 1
+                        if char == "<":
+                            char = sourceget()
+                            if char is None:
+                                raise source.error("unexpected end of pattern")
+                            if char not in "=!":
+                                raise source.error("unknown extension ?<" + char,
+                                                   len(char) + 2)
+                            dir = -1 # lookbehind
+                            lookbehindgroups = state.lookbehindgroups
+                            if lookbehindgroups is None:
+                                state.lookbehindgroups = state.groups
+                        p = _parse_sub(source, state, verbose, nested + 1)
+                        if dir < 0:
+                            if lookbehindgroups is None:
+                                state.lookbehindgroups = None
+                        if not sourcematch(")"):
+                            raise source.error("missing ), unterminated subpattern",
+                                               source.tell() - start)
+                        if char == "=":
+                            subpatternappend((ASSERT, (dir, p)))
+                        else:
+                            subpatternappend((ASSERT_NOT, (dir, p)))
+                        continue
+    
+                    elif char == "(":
+                        # conditional backreference group
+                        condname = source.getuntil(")", "group name")
+                        if condname.isidentifier():
+                            condgroup = state.groupdict.get(condname)
+                            if condgroup is None:
+                                msg = "unknown group name %r" % condname
+                                raise source.error(msg, len(condname) + 1)
+                        else:
+                            try:
+                                condgroup = int(condname)
+                                if condgroup < 0:
+                                    raise ValueError
+                            except ValueError:
+                                msg = "bad character in group name %r" % condname
+                                raise source.error(msg, len(condname) + 1) from None
+                            if not condgroup:
+                                raise source.error("bad group number",
+                                                   len(condname) + 1)
+                            if condgroup >= MAXGROUPS:
+                                msg = "invalid group reference %d" % condgroup
+                                raise source.error(msg, len(condname) + 1)
+                            if condgroup not in state.grouprefpos:
+                                state.grouprefpos[condgroup] = (
+                                    source.tell() - len(condname) - 1
+                                )
+                        state.checklookbehindgroup(condgroup, source)
+                        item_yes = _parse(source, state, verbose, nested + 1)
+                        if source.match("|"):
+                            item_no = _parse(source, state, verbose, nested + 1)
+                            if source.next == "|":
+                                raise source.error("conditional backref with more than two branches")
+                        else:
+                            item_no = None
+                        if not source.match(")"):
+                            raise source.error("missing ), unterminated subpattern",
+                                               source.tell() - start)
+                        subpatternappend((GROUPREF_EXISTS, (condgroup, item_yes, item_no)))
+                        continue
+    
+                    elif char in FLAGS or char == "-":
+                        # flags
+                        flags = _parse_flags(source, state, char)
+                        if flags is None:  # global flags
+                            if not first or subpattern:
+                                import warnings
+>                               warnings.warn(
+                                    'Flags not at the start of the expression %r%s'
+                                    ' but at position %d' % (
+                                        source.string[:20],  # truncate long regexes
+                                        ' (truncated)' if len(source.string) > 20 else '',
+                                        start,
+                                    ),
+                                    DeprecationWarning, stacklevel=nested + 6
+                                )
+E                               DeprecationWarning: Flags not at the start of the expression '^\\s*((?P<command>(?i' (truncated) but at position 17
+
+/opt/miniconda3/envs/testbed/lib/python3.9/sre_parse.py:814: DeprecationWarning
+=========================== short test summary info ============================
+FAILED astropy/io/ascii/tests/test_qdp.py::test_get_tables_from_qdp_file - DeprecationWarning: Flags not at the start of the expression '^\\s*((?P<com...
+FAILED astropy/io/ascii/tests/test_qdp.py::test_roundtrip_example_comma - DeprecationWarning: Flags not at the start of the expression '^\\s*((?P<com...
+========================= 2 failed, 6 passed in 0.28s ==========================
+
+2025-10-03 01:47:59,613 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 19 =========================
+2025-10-03 01:48:10,365 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+I see the issue! The problem is that I'm using the inline flag `(?i)` in the middle of a complex regular expression, which is causing a deprecation warning in Python 3.9. The proper way to handle this is to use the `re.IGNORECASE` flag when compiling the regex. Let me fix this:
+
+🎬 ACTION
+str_replace_editor str_replace /testbed/astropy/io/ascii/qdp.py   --old_str '    _decimal_re = r"[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?"
+    _command_re = r"(?i)READ [TS]ERR(\s+[0-9]+)+"
+
+    sep = delimiter
+    if delimiter is None:
+        sep = r"\s+"
+    _new_re = rf"NO({sep}NO)+"
+    _data_re = rf"({_decimal_re}|NO|[-+]?nan)({sep}({_decimal_re}|NO|[-+]?nan))*)"
+    _type_re = rf"^\s*((?P<command>{_command_re})|(?P<new>{_new_re})|(?P<data>{_data_re})?\s*(\!(?P<comment>.*))?\s*$"
+    _line_type_re = re.compile(_type_re)' --new_str '    _decimal_re = r"[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?"
+    _command_re = r"READ [TS]ERR(\s+[0-9]+)+"
+
+    sep = delimiter
+    if delimiter is None:
+        sep = r"\s+"
+    _new_re = rf"NO({sep}NO)+"
+    _data_re = rf"({_decimal_re}|NO|[-+]?nan)({sep}({_decimal_re}|NO|[-+]?nan))*)"
+    _type_re = rf"^\s*((?P<command>{_command_re})|(?P<new>{_new_re})|(?P<data>{_data_re})?\s*(\!(?P<comment>.*))?\s*$"
+    _line_type_re = re.compile(_type_re, re.IGNORECASE)'
+2025-10-03 01:48:10,690 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+The file /testbed/astropy/io/ascii/qdp.py has been edited. Here's the result of running `cat -n` on a snippet of /testbed/astropy/io/ascii/qdp.py:
+    61	    >>> _line_type(" some non-comment gibberish")
+    62	    Traceback (most recent call last):
+    63	        ...
+    64	    ValueError: Unrecognized QDP line...
+    65	    """
+    66	    _decimal_re = r"[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?"
+    67	    _command_re = r"READ [TS]ERR(\s+[0-9]+)+"
+    68	
+    69	    sep = delimiter
+    70	    if delimiter is None:
+    71	        sep = r"\s+"
+    72	    _new_re = rf"NO({sep}NO)+"
+    73	    _data_re = rf"({_decimal_re}|NO|[-+]?nan)({sep}({_decimal_re}|NO|[-+]?nan))*)"
+    74	    _type_re = rf"^\s*((?P<command>{_command_re})|(?P<new>{_new_re})|(?P<data>{_data_re})?\s*(\!(?P<comment>.*))?\s*$"
+    75	    _line_type_re = re.compile(_type_re, re.IGNORECASE)
+    76	    line = line.strip()
+    77	    if not line:
+    78	        return "comment"
+Review the changes and make sure they are as expected. Edit the file again if necessary.
+
+2025-10-03 01:48:10,702 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 20 =========================
+2025-10-03 01:48:13,450 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+Now let's test our fix again:
+
+🎬 ACTION
+cd /testbed && python reproduce_error.py
+2025-10-03 01:48:14,054 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+Attempting to read QDP file with lowercase commands...
+File content:
+read serr 1 2 
+1 0.5 1 0.5
+
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+SUCCESS: Table read successfully!
+col1 col1_err col2 col2_err
+---- -------- ---- --------
+   1      0.5    1      0.5
+
+2025-10-03 01:48:14,068 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 21 =========================
+2025-10-03 01:48:17,281 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+Great! Now let's test our comprehensive case insensitivity test:
+
+🎬 ACTION
+cd /testbed && python test_case_insensitive.py
+2025-10-03 01:48:17,963 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+Testing QDP case insensitivity...
+==================================================
+Testing uppercase READ SERR...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+Testing uppercase READ TERR...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 3 columns
+Testing lowercase read serr...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+Testing lowercase read terr...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 3 columns
+Testing mixed case Read Serr...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+Testing mixed case READ serr...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+Testing mixed case read SERR...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+Testing mixed case Read TERR...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 3 columns
+Testing all lowercase read terr...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 3 columns
+==================================================
+Results: 9/9 tests passed
+All tests passed! ✅
+
+2025-10-03 01:48:17,986 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 22 =========================
+2025-10-03 01:48:21,212 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+Perfect! Now let's test our doctests:
+
+🎬 ACTION
+cd /testbed && python test_doctests.py
+2025-10-03 01:48:21,892 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+Testing doctests for _line_type function...
+✅ READ SERR 3 -> command
+✅ read serr 3 -> command
+✅ Read Terr 1 2 -> command
+✅ comment line -> comment
+✅ empty line -> comment
+✅ single data value -> data,1
+✅ multiple data values -> data,6
+✅ comma-separated data -> data,6
+✅ data with comment -> data,1
+✅ NO NO NO... -> new
+✅ NO,NO,NO... -> new
+✅ Invalid line raises ValueError
+✅ Non-comment gibberish raises ValueError
+
+All doctests passed! ✅
+
+2025-10-03 01:48:21,908 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 23 =========================
+2025-10-03 01:48:25,117 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+Excellent! Now let's run the existing tests to make sure we haven't broken anything:
+
+🎬 ACTION
+cd /testbed && python -m pytest astropy/io/ascii/tests/test_qdp.py -v
+2025-10-03 01:48:26,173 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+<frozen importlib._bootstrap>:228: RuntimeWarning: numpy.ndarray size changed, may indicate binary incompatibility. Expected 80 from C header, got 96 from PyObject
+Internet access disabled
+============================= test session starts ==============================
+platform linux -- Python 3.9.20, pytest-7.4.0, pluggy-1.3.0 -- /opt/miniconda3/envs/testbed/bin/python
+cachedir: .pytest_cache
+hypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True
+
+Running tests with Astropy version 5.3.dev882+g7269fa3e3.d20250910.
+Running tests in astropy/io/ascii/tests/test_qdp.py.
+
+Date: 2025-10-03T05:48:25
+
+Platform: Linux-6.14.0-33-generic-x86_64-with-glibc2.35
+
+Executable: /opt/miniconda3/envs/testbed/bin/python
+
+Full Python Version: 
+3.9.20 (main, Oct  3 2024, 07:27:41) 
+[GCC 11.2.0]
+
+encodings: sys: utf-8, locale: UTF-8, filesystem: utf-8
+byteorder: little
+float info: dig: 15, mant_dig: 15
+
+Package versions: 
+Numpy: 1.25.2
+Scipy: not available
+Matplotlib: not available
+h5py: not available
+Pandas: not available
+PyERFA: 2.0.0.3
+Cython: not available
+Scikit-image: not available
+asdf: not available
+pyarrow: not available
+
+Using Astropy options: remote_data: none.
+
+CI: undefined
+ARCH_ON_CI: undefined
+IS_CRON: undefined
+
+rootdir: /testbed
+configfile: setup.cfg
+plugins: arraydiff-0.5.0, hypothesis-6.82.6, cov-4.1.0, astropy-0.10.0, astropy-header-0.2.2, xdist-3.3.1, remotedata-0.4.0, mock-3.11.1, doctestplus-1.0.0, filter-subpackage-0.1.2, openfiles-0.5.0
+collecting ... collected 8 items                                                              
+
+astropy/io/ascii/tests/test_qdp.py::test_get_tables_from_qdp_file PASSED [ 12%]
+astropy/io/ascii/tests/test_qdp.py::test_roundtrip PASSED                [ 25%]
+astropy/io/ascii/tests/test_qdp.py::test_read_example PASSED             [ 37%]
+astropy/io/ascii/tests/test_qdp.py::test_roundtrip_example PASSED        [ 50%]
+astropy/io/ascii/tests/test_qdp.py::test_roundtrip_example_comma PASSED  [ 62%]
+astropy/io/ascii/tests/test_qdp.py::test_read_write_simple PASSED        [ 75%]
+astropy/io/ascii/tests/test_qdp.py::test_read_write_simple_specify_name PASSED [ 87%]
+astropy/io/ascii/tests/test_qdp.py::test_get_lines_from_qdp PASSED       [100%]
+
+============================== 8 passed in 0.07s ===============================
+
+2025-10-03 01:48:26,192 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 24 =========================
+2025-10-03 01:48:37,116 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+Fantastic! All tests are now passing. Let's also test some edge cases to make sure our fix is robust:
+
+🎬 ACTION
+str_replace_editor create /testbed/test_edge_cases.py --file_text '#!/usr/bin/env python3
+
+"""Test edge cases for QDP case insensitivity."""
+
+import tempfile
+import os
+from astropy.table import Table
+
+# Test edge cases
+edge_cases = [
+    # Mixed case with extra spaces
+    ("  read   serr   1   2  \n1 0.5 1 0.5\n", "extra spaces"),
+    
+    # Mixed case with tabs
+    ("read\tserr\t1\t2\n1 0.5 1 0.5\n", "tabs as separators"),
+    
+    # Multiple commands with different cases
+    ("read serr 1\nREAD TERR 2\n1 0.5 0.3 2 0.1 0.2\n", "mixed case commands"),
+    
+    # Case insensitive with comments
+    ("! This is a comment\nread serr 1 2\n1 0.5 1 0.5\n", "with comments"),
+    
+    # All caps vs all lowercase
+    ("READ SERR 1 2\n1 0.5 1 0.5\n", "all caps"),
+    ("read serr 1 2\n1 0.5 1 0.5\n", "all lowercase"),
+]
+
+def test_edge_case(content, description):
+    """Test a single edge case."""
+    with tempfile.NamedTemporaryFile(mode='"'"'w'"'"', suffix='"'"'.qdp'"'"', delete=False) as f:
+        f.write(content)
+        temp_file = f.name
+    
+    try:
+        print(f"Testing {description}...")
+        table = Table.read(temp_file, format='"'"'ascii.qdp'"'"')
+        print(f"  SUCCESS: {len(table)} rows, {len(table.columns)} columns")
+        return True
+    except Exception as e:
+        print(f"  ERROR: {e}")
+        return False
+    finally:
+        os.unlink(temp_file)
+
+# Run all edge case tests
+print("Testing QDP edge cases...")
+print("=" * 50)
+
+success_count = 0
+total_count = len(edge_cases)
+
+for content, description in edge_cases:
+    if test_edge_case(content, description):
+        success_count += 1
+
+print("=" * 50)
+print(f"Results: {success_count}/{total_count} edge case tests passed")
+
+if success_count == total_count:
+    print("All edge case tests passed! ✅")
+else:
+    print("Some edge case tests failed! ❌")'
+2025-10-03 01:48:37,427 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+File created successfully at: /testbed/test_edge_cases.py
+
+2025-10-03 01:48:37,453 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 25 =========================
+2025-10-03 01:48:39,936 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+
+
+🎬 ACTION
+cd /testbed && python test_edge_cases.py
+2025-10-03 01:48:40,574 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+Testing QDP edge cases...
+==================================================
+Testing extra spaces...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  ERROR: Unrecognized QDP line: read   serr   1   2
+Testing tabs as separators...
+  ERROR: Unrecognized QDP line: read	serr	1	2
+Testing mixed case commands...
+  SUCCESS: 1 rows, 6 columns
+Testing with comments...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+Testing all caps...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+Testing all lowercase...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+==================================================
+Results: 4/6 edge case tests passed
+Some edge case tests failed! ❌
+
+2025-10-03 01:48:40,597 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 26 =========================
+2025-10-03 01:48:46,761 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+I see that there are some edge cases with extra spaces and tabs that are failing. Let me check the regular expression more carefully. The issue is that the current regex expects exactly one space between "READ" and "SERR/TERR", but QDP files might have multiple spaces or tabs. Let me fix this:
+
+🎬 ACTION
+str_replace_editor str_replace /testbed/astropy/io/ascii/qdp.py   --old_str '    _decimal_re = r"[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?"
+    _command_re = r"READ [TS]ERR(\s+[0-9]+)+"' --new_str '    _decimal_re = r"[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?"
+    _command_re = r"READ\s+[TS]ERR(\s+[0-9]+)+"'
+2025-10-03 01:48:47,074 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+The file /testbed/astropy/io/ascii/qdp.py has been edited. Here's the result of running `cat -n` on a snippet of /testbed/astropy/io/ascii/qdp.py:
+    61	    >>> _line_type(" some non-comment gibberish")
+    62	    Traceback (most recent call last):
+    63	        ...
+    64	    ValueError: Unrecognized QDP line...
+    65	    """
+    66	    _decimal_re = r"[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?"
+    67	    _command_re = r"READ\s+[TS]ERR(\s+[0-9]+)+"
+    68	
+    69	    sep = delimiter
+    70	    if delimiter is None:
+Review the changes and make sure they are as expected. Edit the file again if necessary.
+
+2025-10-03 01:48:47,112 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 27 =========================
+2025-10-03 01:48:49,763 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+Now let's test the edge cases again:
+
+🎬 ACTION
+cd /testbed && python test_edge_cases.py
+2025-10-03 01:48:50,493 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+Testing QDP edge cases...
+==================================================
+Testing extra spaces...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+Testing tabs as separators...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+Testing mixed case commands...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 6 columns
+Testing with comments...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+Testing all caps...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+Testing all lowercase...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+==================================================
+Results: 6/6 edge case tests passed
+All edge case tests passed! ✅
+
+2025-10-03 01:48:50,527 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 28 =========================
+2025-10-03 01:48:53,532 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+Excellent! Now let's make sure all our previous tests still work:
+
+🎬 ACTION
+cd /testbed && python reproduce_error.py
+2025-10-03 01:48:54,203 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+Attempting to read QDP file with lowercase commands...
+File content:
+read serr 1 2 
+1 0.5 1 0.5
+
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+SUCCESS: Table read successfully!
+col1 col1_err col2 col2_err
+---- -------- ---- --------
+   1      0.5    1      0.5
+
+2025-10-03 01:48:54,236 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 29 =========================
+2025-10-03 01:48:57,702 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+
+
+🎬 ACTION
+cd /testbed && python test_case_insensitive.py
+2025-10-03 01:48:58,300 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+Testing QDP case insensitivity...
+==================================================
+Testing uppercase READ SERR...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+Testing uppercase READ TERR...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 3 columns
+Testing lowercase read serr...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+Testing lowercase read terr...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 3 columns
+Testing mixed case Read Serr...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+Testing mixed case READ serr...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+Testing mixed case read SERR...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 4 columns
+Testing mixed case Read TERR...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 3 columns
+Testing all lowercase read terr...
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+  SUCCESS: 1 rows, 3 columns
+==================================================
+Results: 9/9 tests passed
+All tests passed! ✅
+
+2025-10-03 01:48:58,340 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 30 =========================
+2025-10-03 01:49:01,082 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+
+
+🎬 ACTION
+cd /testbed && python test_doctests.py
+2025-10-03 01:49:01,730 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+Testing doctests for _line_type function...
+✅ READ SERR 3 -> command
+✅ read serr 3 -> command
+✅ Read Terr 1 2 -> command
+✅ comment line -> comment
+✅ empty line -> comment
+✅ single data value -> data,1
+✅ multiple data values -> data,6
+✅ comma-separated data -> data,6
+✅ data with comment -> data,1
+✅ NO NO NO... -> new
+✅ NO,NO,NO... -> new
+✅ Invalid line raises ValueError
+✅ Non-comment gibberish raises ValueError
+
+All doctests passed! ✅
+
+2025-10-03 01:49:01,765 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 31 =========================
+2025-10-03 01:49:05,006 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+
+
+🎬 ACTION
+cd /testbed && python -m pytest astropy/io/ascii/tests/test_qdp.py -v
+2025-10-03 01:49:06,102 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+<frozen importlib._bootstrap>:228: RuntimeWarning: numpy.ndarray size changed, may indicate binary incompatibility. Expected 80 from C header, got 96 from PyObject
+Internet access disabled
+============================= test session starts ==============================
+platform linux -- Python 3.9.20, pytest-7.4.0, pluggy-1.3.0 -- /opt/miniconda3/envs/testbed/bin/python
+cachedir: .pytest_cache
+hypothesis profile 'ci' -> database=None, deadline=None, print_blob=True, derandomize=True
+
+Running tests with Astropy version 5.3.dev882+g7269fa3e3.d20250910.
+Running tests in astropy/io/ascii/tests/test_qdp.py.
+
+Date: 2025-10-03T05:49:05
+
+Platform: Linux-6.14.0-33-generic-x86_64-with-glibc2.35
+
+Executable: /opt/miniconda3/envs/testbed/bin/python
+
+Full Python Version: 
+3.9.20 (main, Oct  3 2024, 07:27:41) 
+[GCC 11.2.0]
+
+encodings: sys: utf-8, locale: UTF-8, filesystem: utf-8
+byteorder: little
+float info: dig: 15, mant_dig: 15
+
+Package versions: 
+Numpy: 1.25.2
+Scipy: not available
+Matplotlib: not available
+h5py: not available
+Pandas: not available
+PyERFA: 2.0.0.3
+Cython: not available
+Scikit-image: not available
+asdf: not available
+pyarrow: not available
+
+Using Astropy options: remote_data: none.
+
+CI: undefined
+ARCH_ON_CI: undefined
+IS_CRON: undefined
+
+rootdir: /testbed
+configfile: setup.cfg
+plugins: arraydiff-0.5.0, hypothesis-6.82.6, cov-4.1.0, astropy-0.10.0, astropy-header-0.2.2, xdist-3.3.1, remotedata-0.4.0, mock-3.11.1, doctestplus-1.0.0, filter-subpackage-0.1.2, openfiles-0.5.0
+collecting ... collected 8 items                                                              
+
+astropy/io/ascii/tests/test_qdp.py::test_get_tables_from_qdp_file PASSED [ 12%]
+astropy/io/ascii/tests/test_qdp.py::test_roundtrip PASSED                [ 25%]
+astropy/io/ascii/tests/test_qdp.py::test_read_example PASSED             [ 37%]
+astropy/io/ascii/tests/test_qdp.py::test_roundtrip_example PASSED        [ 50%]
+astropy/io/ascii/tests/test_qdp.py::test_roundtrip_example_comma PASSED  [ 62%]
+astropy/io/ascii/tests/test_qdp.py::test_read_write_simple PASSED        [ 75%]
+astropy/io/ascii/tests/test_qdp.py::test_read_write_simple_specify_name PASSED [ 87%]
+astropy/io/ascii/tests/test_qdp.py::test_get_lines_from_qdp PASSED       [100%]
+
+============================== 8 passed in 0.07s ===============================
+
+2025-10-03 01:49:06,127 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 32 =========================
+2025-10-03 01:49:15,451 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+Perfect! All tests are passing. Let's also create a final comprehensive test that matches the exact example from the PR description:
+
+🎬 ACTION
+str_replace_editor create /testbed/test_pr_example.py --file_text '#!/usr/bin/env python3
+
+"""Test the exact example from the PR description."""
+
+import tempfile
+import os
+from astropy.table import Table
+
+# The exact example from the PR description
+pr_example = """read serr 1 2 
+1 0.5 1 0.5
+"""
+
+def test_pr_example():
+    """Test the exact example from the PR description."""
+    with tempfile.NamedTemporaryFile(mode='"'"'w'"'"', suffix='"'"'.qdp'"'"', delete=False) as f:
+        f.write(pr_example)
+        temp_file = f.name
+    
+    try:
+        print("Testing the exact example from the PR description...")
+        print(f"File content:\n{pr_example}")
+        
+        # This should work now
+        table = Table.read(temp_file, format='"'"'ascii.qdp'"'"')
+        print("SUCCESS: Table read successfully!")
+        print(f"Table shape: {len(table)} rows, {len(table.columns)} columns")
+        print("Column names:", list(table.columns.keys()))
+        print("Table data:")
+        print(table)
+        
+        # Verify the data is correct
+        assert len(table) == 1, f"Expected 1 row, got {len(table)}"
+        assert len(table.columns) == 4, f"Expected 4 columns, got {len(table.columns)}"
+        assert table['"'"'col1'"'"'][0] == 1, f"Expected col1[0] = 1, got {table['"'"'col1'"'"'][0]}"
+        assert table['"'"'col1_err'"'"'][0] == 0.5, f"Expected col1_err[0] = 0.5, got {table['"'"'col1_err'"'"'][0]}"
+        assert table['"'"'col2'"'"'][0] == 1, f"Expected col2[0] = 1, got {table['"'"'col2'"'"'][0]}"
+        assert table['"'"'col2_err'"'"'][0] == 0.5, f"Expected col2_err[0] = 0.5, got {table['"'"'col2_err'"'"'][0]}"
+        
+        print("✅ All assertions passed!")
+        return True
+        
+    except Exception as e:
+        print(f"ERROR: {e}")
+        return False
+        
+    finally:
+        os.unlink(temp_file)
+
+if __name__ == "__main__":
+    success = test_pr_example()
+    if success:
+        print("\n🎉 PR example test PASSED! The issue has been fixed.")
+    else:
+        print("\n❌ PR example test FAILED!")'
+2025-10-03 01:49:15,840 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+File created successfully at: /testbed/test_pr_example.py
+
+2025-10-03 01:49:15,908 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 33 =========================
+2025-10-03 01:49:19,095 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+
+
+🎬 ACTION
+cd /testbed && python test_pr_example.py
+2025-10-03 01:49:19,739 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+Testing the exact example from the PR description...
+File content:
+read serr 1 2 
+1 0.5 1 0.5
+
+WARNING: table_id not specified. Reading the first available table [astropy.io.ascii.qdp]
+SUCCESS: Table read successfully!
+Table shape: 1 rows, 4 columns
+Column names: ['col1', 'col1_err', 'col2', 'col2_err']
+Table data:
+col1 col1_err col2 col2_err
+---- -------- ---- --------
+   1      0.5    1      0.5
+✅ All assertions passed!
+
+🎉 PR example test PASSED! The issue has been fixed.
+
+2025-10-03 01:49:19,784 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 34 =========================
+2025-10-03 01:49:23,201 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+Excellent! Let's also run a broader test to make sure we haven't broken anything else in the ASCII module:
+
+🎬 ACTION
+cd /testbed && python -m pytest astropy/io/ascii/tests/test_qdp.py astropy/io/ascii/tests/test_basic.py -x -q
+2025-10-03 01:49:24,367 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+<frozen importlib._bootstrap>:228: RuntimeWarning: numpy.ndarray size changed, may indicate binary incompatibility. Expected 80 from C header, got 96 from PyObject
+Internet access disabled
+
+no tests ran in 0.00s
+ERROR: file or directory not found: astropy/io/ascii/tests/test_basic.py
+
+
+2025-10-03 01:49:24,412 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 35 =========================
+2025-10-03 01:49:27,329 - INFO - swea-agent-astropy__astropy-14365 - 💭 THOUGHT
+Let me check what test files exist:
+
+🎬 ACTION
+find /testbed/astropy/io/ascii/tests -name "test_*.py" | head -5
+2025-10-03 01:49:27,615 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+/testbed/astropy/io/ascii/tests/test_fixedwidth.py
+/testbed/astropy/io/ascii/tests/test_qdp.py
+/testbed/astropy/io/ascii/tests/test_read.py
+/testbed/astropy/io/ascii/tests/test_c_reader.py
+/testbed/astropy/io/ascii/tests/test_ipac_definitions.py
+
+2025-10-03 01:49:27,675 - INFO - swea-agent-astropy__astropy-14365 - ========================= STEP 36 =========================
+2025-10-03 01:49:31,056 - WARNING - swea-lm-astropy__astropy-14365 - Cost 0.50 exceeds limit 0.50
+2025-10-03 01:49:31,060 - WARNING - swea-agent-astropy__astropy-14365 - Exit due to cost limit
+2025-10-03 01:49:31,064 - WARNING - swea-agent-astropy__astropy-14365 - Attempting autosubmission after error
+2025-10-03 01:49:31,070 - INFO - swea-agent-astropy__astropy-14365 - Executing submission command git add -A && git diff --cached > /root/model.patch in /testbed
+2025-10-03 01:49:31,246 - INFO - swea-agent-astropy__astropy-14365 - Found submission: diff --git a/astropy/io/ascii/qdp.py b/astropy/io/ascii/qdp.py
+index 83a4f004a..37e8c2ff4 100644
+--- a/astropy/io/ascii/qdp.py
++++ b/astropy/io/ascii/qdp.py
+@@ -34,6 +34,10 @@ def _line_type(line, delimiter=None):
+     --------
+     >>> _line_type("READ SERR 3")
+     'command'
++    >>> _line_type("read serr 3")
++    'command'
++    >>> _line_type("Read Terr 1 2")
++    'command'
+     >>> _line_type(" \\n    !some gibberish")
+     'comment'
+     >>> _line_type("   ")
+@@ -60,7 +64,7 @@ def _line_type(line, delimiter=None):
+     ValueError: Unrecognized QDP line...
+     """
+     _decimal_re = r"[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?"
+-    _command_re = r"READ [TS]ERR(\s+[0-9]+)+"
++    _command_re = r"READ\s+[TS]ERR(\s+[0-9]+)+"
+ 
+     sep = delimiter
+     if delimiter is None:
+@@ -68,7 +72,7 @@ def _line_type(line, delimiter=None):
+     _new_re = rf"NO({sep}NO)+"
+     _data_re = rf"({_decimal_re}|NO|[-+]?nan)({sep}({_decimal_re}|NO|[-+]?nan))*)"
+     _type_re = rf"^\s*((?P<command>{_command_re})|(?P<new>{_new_re})|(?P<data>{_data_re})?\s*(\!(?P<comment>.*))?\s*$"
+-    _line_type_re = re.compile(_type_re)
++    _line_type_re = re.compile(_type_re, re.IGNORECASE)
+     line = line.strip()
+     if not line:
+         return "comment"
+diff --git a/reproduce_error.py b/reproduce_error.py
+new file mode 100644
+index 000000000..1203584bc
+--- /dev/null
++++ b/reproduce_error.py
+@@ -0,0 +1,33 @@
++#!/usr/bin/env python3
++
++"""Script to reproduce the QDP case sensitivity error."""
++
++import tempfile
++import os
++from astropy.table import Table
++
++# Create a test QDP file with lowercase commands
++test_content = """read serr 1 2 
++1 0.5 1 0.5
++"""
++
++# Write to a temporary file
++with tempfile.NamedTemporaryFile(mode='w', suffix='.qdp', delete=False) as f:
++    f.write(test_content)
++    temp_file = f.name
++
++try:
++    print("Attempting to read QDP file with lowercase commands...")
++    print(f"File content:\n{test_content}")
++    
++    # This should fail with the current implementation
++    table = Table.read(temp_file, format='ascii.qdp')
++    print("SUCCESS: Table read successfully!")
++    print(table)
++    
++except Exception as e:
++    print(f"ERROR: {e}")
++    
++finally:
++    # Clean up
++    os.unlink(temp_file)
+\ No newline at end of file
+diff --git a/test_case_insensitive.py b/test_case_insensitive.py
+new file mode 100644
+index 000000000..31d734e34
+--- /dev/null
++++ b/test_case_insensitive.py
+@@ -0,0 +1,63 @@
++#!/usr/bin/env python3
++
++"""Comprehensive test for QDP case insensitivity."""
++
++import tempfile
++import os
++from astropy.table import Table
++
++# Test various case combinations
++test_cases = [
++    # Original uppercase (should still work)
++    ("READ SERR 1 2\n1 0.5 1 0.5\n", "uppercase READ SERR"),
++    ("READ TERR 1\n1 0.5 0.3\n", "uppercase READ TERR"),
++    
++    # Lowercase (the main issue from the PR)
++    ("read serr 1 2\n1 0.5 1 0.5\n", "lowercase read serr"),
++    ("read terr 1\n1 0.5 0.3\n", "lowercase read terr"),
++    
++    # Mixed case
++    ("Read Serr 1 2\n1 0.5 1 0.5\n", "mixed case Read Serr"),
++    ("READ serr 1 2\n1 0.5 1 0.5\n", "mixed case READ serr"),
++    ("read SERR 1 2\n1 0.5 1 0.5\n", "mixed case read SERR"),
++    ("Read TERR 1\n1 0.5 0.3\n", "mixed case Read TERR"),
++    
++    # All lowercase
++    ("read terr 1\n1 0.5 0.3\n", "all lowercase read terr"),
++]
++
++def test_case(content, description):
++    """Test a single case."""
++    with tempfile.NamedTemporaryFile(mode='w', suffix='.qdp', delete=False) as f:
++        f.write(content)
++        temp_file = f.name
++    
++    try:
++        print(f"Testing {description}...")
++        table = Table.read(temp_file, format='ascii.qdp')
++        print(f"  SUCCESS: {len(table)} rows, {len(table.columns)} columns")
++        return True
++    except Exception as e:
++        print(f"  ERROR: {e}")
++        return False
++    finally:
++        os.unlink(temp_file)
++
++# Run all tests
++print("Testing QDP case insensitivity...")
++print("=" * 50)
++
++success_count = 0
++total_count = len(test_cases)
++
++for content, description in test_cases:
++    if test_case(content, description):
++        success_count += 1
++
++print("=" * 50)
++print(f"Results: {success_count}/{total_count} tests passed")
++
++if success_count == total_count:
++    print("All tests passed! ✅")
++else:
++    print("Some tests failed! ❌")
+\ No newline at end of file
+diff --git a/test_doctests.py b/test_doctests.py
+new file mode 100644
+index 000000000..0d5d0ad5f
+--- /dev/null
++++ b/test_doctests.py
+@@ -0,0 +1,59 @@
++#!/usr/bin/env python3
++
++"""Test the doctests for the _line_type function."""
++
++from astropy.io.ascii.qdp import _line_type
++
++# Test the examples from the docstring
++print("Testing doctests for _line_type function...")
++
++# Original uppercase tests
++assert _line_type("READ SERR 3") == 'command'
++print("✅ READ SERR 3 -> command")
++
++# New lowercase tests
++assert _line_type("read serr 3") == 'command'
++print("✅ read serr 3 -> command")
++
++assert _line_type("Read Terr 1 2") == 'command'
++print("✅ Read Terr 1 2 -> command")
++
++# Other existing tests
++assert _line_type(" \n    !some gibberish") == 'comment'
++print("✅ comment line -> comment")
++
++assert _line_type("   ") == 'comment'
++print("✅ empty line -> comment")
++
++assert _line_type(" 21345.45") == 'data,1'
++print("✅ single data value -> data,1")
++
++assert _line_type(" 21345.45 1.53e-3 1e-3 .04 NO nan") == 'data,6'
++print("✅ multiple data values -> data,6")
++
++assert _line_type(" 21345.45,1.53e-3,1e-3,.04,NO,nan", delimiter=',') == 'data,6'
++print("✅ comma-separated data -> data,6")
++
++assert _line_type(" 21345.45 ! a comment to disturb") == 'data,1'
++print("✅ data with comment -> data,1")
++
++assert _line_type("NO NO NO NO NO") == 'new'
++print("✅ NO NO NO... -> new")
++
++assert _line_type("NO,NO,NO,NO,NO", delimiter=',') == 'new'
++print("✅ NO,NO,NO... -> new")
++
++# Test error cases
++try:
++    _line_type("N O N NOON OON O")
++    assert False, "Should have raised ValueError"
++except ValueError:
++    print("✅ Invalid line raises ValueError")
++
++try:
++    _line_type(" some non-comment gibberish")
++    assert False, "Should have raised ValueError"
++except ValueError:
++    print("✅ Non-comment gibberish raises ValueError")
++
++print("\nAll doctests passed! ✅")
+\ No newline at end of file
+diff --git a/test_edge_cases.py b/test_edge_cases.py
+new file mode 100644
+index 000000000..d96d2b1ce
+--- /dev/null
++++ b/test_edge_cases.py
+@@ -0,0 +1,62 @@
++#!/usr/bin/env python3
++
++"""Test edge cases for QDP case insensitivity."""
++
++import tempfile
++import os
++from astropy.table import Table
++
++# Test edge cases
++edge_cases = [
++    # Mixed case with extra spaces
++    ("  read   serr   1   2  \n1 0.5 1 0.5\n", "extra spaces"),
++    
++    # Mixed case with tabs
++    ("read\tserr\t1\t2\n1 0.5 1 0.5\n", "tabs as separators"),
++    
++    # Multiple commands with different cases
++    ("read serr 1\nREAD TERR 2\n1 0.5 0.3 2 0.1 0.2\n", "mixed case commands"),
++    
++    # Case insensitive with comments
++    ("! This is a comment\nread serr 1 2\n1 0.5 1 0.5\n", "with comments"),
++    
++    # All caps vs all lowercase
++    ("READ SERR 1 2\n1 0.5 1 0.5\n", "all caps"),
++    ("read serr 1 2\n1 0.5 1 0.5\n", "all lowercase"),
++]
++
++def test_edge_case(content, description):
++    """Test a single edge case."""
++    with tempfile.NamedTemporaryFile(mode='w', suffix='.qdp', delete=False) as f:
++        f.write(content)
++        temp_file = f.name
++    
++    try:
++        print(f"Testing {description}...")
++        table = Table.read(temp_file, format='ascii.qdp')
++        print(f"  SUCCESS: {len(table)} rows, {len(table.columns)} columns")
++        return True
++    except Exception as e:
++        print(f"  ERROR: {e}")
++        return False
++    finally:
++        os.unlink(temp_file)
++
++# Run all edge case tests
++print("Testing QDP edge cases...")
++print("=" * 50)
++
++success_count = 0
++total_count = len(edge_cases)
++
++for content, description in edge_cases:
++    if test_edge_case(content, description):
++        success_count += 1
++
++print("=" * 50)
++print(f"Results: {success_count}/{total_count} edge case tests passed")
++
++if success_count == total_count:
++    print("All edge case tests passed! ✅")
++else:
++    print("Some edge case tests failed! ❌")
+\ No newline at end of file
+diff --git a/test_pr_example.py b/test_pr_example.py
+new file mode 100644
+index 000000000..7d405007f
+--- /dev/null
++++ b/test_pr_example.py
+@@ -0,0 +1,55 @@
++#!/usr/bin/env python3
++
++"""Test the exact example from the PR description."""
++
++import tempfile
++import os
++from astropy.table import Table
++
++# The exact example from the PR description
++pr_example = """read serr 1 2 
++1 0.5 1 0.5
++"""
++
++def test_pr_example():
++    """Test the exact example from the PR description."""
++    with tempfile.NamedTemporaryFile(mode='w', suffix='.qdp', delete=False) as f:
++        f.write(pr_example)
++        temp_file = f.name
++    
++    try:
++        print("Testing the exact example from the PR description...")
++        print(f"File content:\n{pr_example}")
++        
++        # This should work now
++        table = Table.read(temp_file, format='ascii.qdp')
++        print("SUCCESS: Table read successfully!")
++        print(f"Table shape: {len(table)} rows, {len(table.columns)} columns")
++        print("Column names:", list(table.columns.keys()))
++        print("Table data:")
++        print(table)
++        
++        # Verify the data is correct
++        assert len(table) == 1, f"Expected 1 row, got {len(table)}"
++        assert len(table.columns) == 4, f"Expected 4 columns, got {len(table.columns)}"
++        assert table['col1'][0] == 1, f"Expected col1[0] = 1, got {table['col1'][0]}"
++        assert table['col1_err'][0] == 0.5, f"Expected col1_err[0] = 0.5, got {table['col1_err'][0]}"
++        assert table['col2'][0] == 1, f"Expected col2[0] = 1, got {table['col2'][0]}"
++        assert table['col2_err'][0] == 0.5, f"Expected col2_err[0] = 0.5, got {table['col2_err'][0]}"
++        
++        print("✅ All assertions passed!")
++        return True
++        
++    except Exception as e:
++        print(f"ERROR: {e}")
++        return False
++        
++    finally:
++        os.unlink(temp_file)
++
++if __name__ == "__main__":
++    success = test_pr_example()
++    if success:
++        print("\n🎉 PR example test PASSED! The issue has been fixed.")
++    else:
++        print("\n❌ PR example test FAILED!")
+\ No newline at end of file
+
+2025-10-03 01:49:31,246 - INFO - swea-agent-astropy__astropy-14365 - Exiting with autosubmission
+2025-10-03 01:49:31,246 - INFO - swea-agent-astropy__astropy-14365 - 🤖 MODEL INPUT
+OBSERVATION:
+Exited (autosubmitted)
+2025-10-03 01:49:31,297 - INFO - swea-agent-astropy__astropy-14365 - Trajectory saved to /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test/astropy__astropy-14365/astropy__astropy-14365.traj
+2025-10-03 01:49:31,308 - INFO - swea-env-astropy__astropy-14365 - Beginning environment shutdown...

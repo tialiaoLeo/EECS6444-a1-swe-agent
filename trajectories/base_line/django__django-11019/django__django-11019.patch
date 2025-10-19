@@ -1,0 +1,746 @@
+diff --git a/analyze_conflicts.py b/analyze_conflicts.py
+new file mode 100644
+index 0000000000..1d91bb7753
+--- /dev/null
++++ b/analyze_conflicts.py
+@@ -0,0 +1,105 @@
++#!/usr/bin/env python3
++
++import warnings
++import sys
++import os
++
++# Add the testbed directory to the Python path
++sys.path.insert(0, '/testbed')
++
++# Set up Django
++os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'test_settings')
++
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        SECRET_KEY='test-secret-key',
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.forms import Media
++
++def test_genuine_conflict():
++    """Test a case where there's a genuine ordering conflict"""
++    print("=== Testing genuine conflict ===")
++    
++    # This should warn because both lists explicitly specify different orders for A and B
++    list1 = ['A', 'B']
++    list2 = ['B', 'A']
++    
++    with warnings.catch_warnings(record=True) as w:
++        warnings.simplefilter("always")
++        result = Media.merge(list1, list2)
++        print(f"merge({list1}, {list2}) = {result}")
++        if w:
++            print(f"Warnings: {len(w)}")
++            for warning in w:
++                print(f"  {warning.message}")
++        else:
++            print("No warnings")
++
++def test_false_positive():
++    """Test the case from the PR - this should NOT warn"""
++    print("\n=== Testing false positive (PR case) ===")
++    
++    # This is the problematic case from the PR
++    list1 = ['color-picker.js', 'text-editor.js']  # Artificial ordering from previous merge
++    list2 = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']  # Explicit dependency order
++    
++    with warnings.catch_warnings(record=True) as w:
++        warnings.simplefilter("always")
++        result = Media.merge(list1, list2)
++        print(f"merge({list1}, {list2}) = {result}")
++        if w:
++            print(f"Warnings: {len(w)} (should be 0)")
++            for warning in w:
++                print(f"  {warning.message}")
++        else:
++            print("No warnings (correct)")
++
++def test_dependency_chain():
++    """Test various dependency chain scenarios"""
++    print("\n=== Testing dependency chains ===")
++    
++    test_cases = [
++        # (list1, list2, should_warn, description)
++        (['A'], ['A', 'B'], False, "Adding dependency"),
++        (['A', 'B'], ['A', 'B', 'C'], False, "Extending chain"),
++        (['A', 'C'], ['A', 'B', 'C'], False, "Inserting in middle"),
++        (['C', 'A'], ['A', 'B', 'C'], False, "Reordering with dependency"),
++        (['A', 'B'], ['B', 'A'], True, "Genuine conflict"),
++        (['A', 'B', 'C'], ['C', 'B', 'A'], True, "Multiple conflicts"),
++    ]
++    
++    for list1, list2, should_warn, description in test_cases:
++        print(f"\n{description}:")
++        print(f"  merge({list1}, {list2})")
++        
++        with warnings.catch_warnings(record=True) as w:
++            warnings.simplefilter("always")
++            result = Media.merge(list1, list2)
++            print(f"  Result: {result}")
++            
++            if should_warn:
++                if w:
++                    print(f"  ✓ Correctly warned ({len(w)} warnings)")
++                else:
++                    print(f"  ✗ Should have warned but didn't")
++            else:
++                if w:
++                    print(f"  ✗ Incorrectly warned ({len(w)} warnings)")
++                    for warning in w:
++                        print(f"    {warning.message}")
++                else:
++                    print(f"  ✓ Correctly no warning")
++
++if __name__ == "__main__":
++    test_genuine_conflict()
++    test_false_positive()
++    test_dependency_chain()
+\ No newline at end of file
+diff --git a/debug_final_merge.py b/debug_final_merge.py
+new file mode 100644
+index 0000000000..0b6bb09c1c
+--- /dev/null
++++ b/debug_final_merge.py
+@@ -0,0 +1,68 @@
++#!/usr/bin/env python3
++
++import warnings
++import sys
++import os
++
++# Add the testbed directory to the Python path
++sys.path.insert(0, '/testbed')
++
++# Set up Django
++os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'test_settings')
++
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        SECRET_KEY='test-secret-key',
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.forms import Media
++
++def debug_final_merge_step():
++    """Debug just the final merge step"""
++    print("=== Debugging final merge step ===")
++    
++    # These are the actual lists that get merged in the final step
++    form_media_js = ['custom_widget.js', 'jquery.js', 'uses_jquery.js']
++    inline_media_js = ['jquery.js', 'also_jquery.js', 'custom_widget.js']
++    
++    print(f"form_media_js: {form_media_js}")
++    print(f"inline_media_js: {inline_media_js}")
++    
++    with warnings.catch_warnings(record=True) as w:
++        warnings.simplefilter("always")
++        result = Media.merge(form_media_js, inline_media_js)
++        print(f"Merge result: {result}")
++        print(f"Warnings: {len(w)}")
++        for warning in w:
++            print(f"  {warning.message}")
++
++def debug_media_addition():
++    """Debug the Media.__add__ method"""
++    print("\n=== Debugging Media.__add__ ===")
++    
++    form_media = Media(js=['custom_widget.js', 'jquery.js', 'uses_jquery.js'])
++    inline_media = Media(js=['jquery.js', 'also_jquery.js', 'custom_widget.js'])
++    
++    print(f"form_media._js_lists: {form_media._js_lists}")
++    print(f"inline_media._js_lists: {inline_media._js_lists}")
++    
++    with warnings.catch_warnings(record=True) as w:
++        warnings.simplefilter("always")
++        combined = form_media + inline_media
++        print(f"combined._js_lists: {combined._js_lists}")
++        print(f"combined._js: {combined._js}")
++        print(f"Warnings: {len(w)}")
++        for warning in w:
++            print(f"  {warning.message}")
++
++if __name__ == "__main__":
++    debug_final_merge_step()
++    debug_media_addition()
+\ No newline at end of file
+diff --git a/debug_merge.py b/debug_merge.py
+new file mode 100644
+index 0000000000..70d9edc9c1
+--- /dev/null
++++ b/debug_merge.py
+@@ -0,0 +1,126 @@
++#!/usr/bin/env python3
++
++import warnings
++import sys
++import os
++
++# Add the testbed directory to the Python path
++sys.path.insert(0, '/testbed')
++
++# Set up Django
++os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'test_settings')
++
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        SECRET_KEY='test-secret-key',
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.forms import Media
++
++def test_merge_step_by_step():
++    print("=== Testing merge step by step ===")
++    
++    # Simulate the problem case
++    list1 = ['color-picker.js', 'text-editor.js']  # Result of first merge
++    list2 = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']  # FancyTextWidget
++    
++    print(f"list1: {list1}")
++    print(f"list2: {list2}")
++    
++    with warnings.catch_warnings(record=True) as w:
++        warnings.simplefilter("always")
++        result = Media.merge(list1, list2)
++        print(f"Result: {result}")
++        if w:
++            for warning in w:
++                print(f"Warning: {warning.message}")
++    
++    print("\n=== Let's trace through the algorithm ===")
++    
++    # Manual trace of the merge algorithm
++    combined_list = list(list1)
++    last_insert_index = len(list1)
++    print(f"Initial combined_list: {combined_list}")
++    print(f"Initial last_insert_index: {last_insert_index}")
++    
++    # Walk list_2 in reverse
++    for i, path in enumerate(reversed(list2)):
++        print(f"\nStep {i+1}: Processing '{path}'")
++        try:
++            index = combined_list.index(path)
++            print(f"  '{path}' found at index {index}")
++            if index > last_insert_index:
++                print(f"  WARNING: index {index} > last_insert_index {last_insert_index}")
++                print(f"  Files in opposite order: {combined_list[last_insert_index]} vs {combined_list[index]}")
++            last_insert_index = index
++            print(f"  Updated last_insert_index to {last_insert_index}")
++        except ValueError:
++            print(f"  '{path}' not found, inserting at index {last_insert_index}")
++            combined_list.insert(last_insert_index, path)
++            print(f"  Updated combined_list: {combined_list}")
++    
++    print(f"\nFinal result: {combined_list}")
++
++def test_ideal_case():
++    print("\n=== Testing what the ideal result should be ===")
++    
++    # The ideal order should be: text-editor.js, text-editor-extras.js, color-picker.js
++    # Because text-editor-extras.js depends on text-editor.js
++    
++    # Let's see what happens if we merge in a different order
++    media1 = Media(js=['color-picker.js'])
++    media2 = Media(js=['text-editor.js'])
++    media3 = Media(js=['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
++    
++    print("Individual media objects:")
++    print(f"media1 (ColorPicker): {media1._js}")
++    print(f"media2 (SimpleText): {media2._js}")
++    print(f"media3 (FancyText): {media3._js}")
++    
++    # Try different merge orders
++    print("\nTrying different merge orders:")
++    
++    with warnings.catch_warnings(record=True) as w:
++        warnings.simplefilter("always")
++        
++        # Current problematic order: media1 + media2 + media3
++        result1 = media1 + media2 + media3
++        print(f"media1 + media2 + media3: {result1._js}")
++        if w:
++            print(f"  Warnings: {len(w)}")
++            for warning in w:
++                print(f"    {warning.message}")
++        
++        # Clear warnings
++        w.clear()
++        
++        # Try: media2 + media1 + media3
++        result2 = media2 + media1 + media3
++        print(f"media2 + media1 + media3: {result2._js}")
++        if w:
++            print(f"  Warnings: {len(w)}")
++            for warning in w:
++                print(f"    {warning.message}")
++        
++        # Clear warnings
++        w.clear()
++        
++        # Try: media3 + media1 + media2
++        result3 = media3 + media1 + media2
++        print(f"media3 + media1 + media2: {result3._js}")
++        if w:
++            print(f"  Warnings: {len(w)}")
++            for warning in w:
++                print(f"    {warning.message}")
++
++if __name__ == "__main__":
++    test_merge_step_by_step()
++    test_ideal_case()
+\ No newline at end of file
+diff --git a/debug_three_way.py b/debug_three_way.py
+new file mode 100644
+index 0000000000..3faaf05a03
+--- /dev/null
++++ b/debug_three_way.py
+@@ -0,0 +1,121 @@
++#!/usr/bin/env python3
++
++import warnings
++import sys
++import os
++
++# Add the testbed directory to the Python path
++sys.path.insert(0, '/testbed')
++
++# Set up Django
++os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'test_settings')
++
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        SECRET_KEY='test-secret-key',
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.forms import Media
++
++def debug_merge():
++    """Debug the merge process step by step"""
++    print("=== Debugging merge process ===")
++    
++    # Test the final merge step from Django test case
++    list1 = ['custom_widget.js', 'jquery.js', 'uses_jquery.js']
++    list2 = ['jquery.js', 'also_jquery.js', 'custom_widget.js']
++    
++    print(f"list1: {list1}")
++    print(f"list2: {list2}")
++    
++    # Test our conflict detection
++    common = set(list1) & set(list2)
++    print(f"common elements: {common}")
++    
++    def get_relative_order(lst, elements):
++        return [item for item in lst if item in elements]
++    
++    order1 = get_relative_order(list1, common)
++    order2 = get_relative_order(list2, common)
++    
++    print(f"order1: {order1}")
++    print(f"order2: {order2}")
++    
++    # Check for conflicts
++    for i in range(len(order1)):
++        for j in range(i + 1, len(order1)):
++            elem1, elem2 = order1[i], order1[j]
++            print(f"Checking pair: {elem1}, {elem2}")
++            try:
++                idx1_in_2 = order2.index(elem1)
++                idx2_in_2 = order2.index(elem2)
++                print(f"  In order2: {elem1} at {idx1_in_2}, {elem2} at {idx2_in_2}")
++                if idx1_in_2 > idx2_in_2:
++                    print(f"  CONFLICT: {elem1} comes after {elem2} in order2")
++                else:
++                    print(f"  OK: same relative order")
++            except ValueError as e:
++                print(f"  ERROR: {e}")
++    
++    # Now test the actual merge
++    with warnings.catch_warnings(record=True) as w:
++        warnings.simplefilter("always")
++        result = Media.merge(list1, list2)
++        print(f"Merge result: {result}")
++        if w:
++            print(f"Warnings: {len(w)}")
++            for warning in w:
++                print(f"  {warning.message}")
++        else:
++            print("No warnings")
++
++def debug_pr_case():
++    """Debug the PR case"""
++    print("\n=== Debugging PR case ===")
++    
++    list1 = ['color-picker.js', 'text-editor.js']
++    list2 = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++    
++    print(f"list1: {list1}")
++    print(f"list2: {list2}")
++    
++    # Test our conflict detection
++    common = set(list1) & set(list2)
++    print(f"common elements: {common}")
++    
++    def get_relative_order(lst, elements):
++        return [item for item in lst if item in elements]
++    
++    order1 = get_relative_order(list1, common)
++    order2 = get_relative_order(list2, common)
++    
++    print(f"order1: {order1}")
++    print(f"order2: {order2}")
++    
++    # Check for conflicts
++    for i in range(len(order1)):
++        for j in range(i + 1, len(order1)):
++            elem1, elem2 = order1[i], order1[j]
++            print(f"Checking pair: {elem1}, {elem2}")
++            try:
++                idx1_in_2 = order2.index(elem1)
++                idx2_in_2 = order2.index(elem2)
++                print(f"  In order2: {elem1} at {idx1_in_2}, {elem2} at {idx2_in_2}")
++                if idx1_in_2 > idx2_in_2:
++                    print(f"  CONFLICT: {elem1} comes after {elem2} in order2")
++                else:
++                    print(f"  OK: same relative order")
++            except ValueError as e:
++                print(f"  ERROR: {e}")
++
++if __name__ == "__main__":
++    debug_merge()
++    debug_pr_case()
+\ No newline at end of file
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..7adcc49eb9 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -125,6 +125,45 @@ class Media:
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
++        # Check for genuine conflicts before merging
++        # Only warn if files that appear in both lists have different relative orders
++        def has_conflict(l1, l2):
++            # Find common elements and their relative orders in both lists
++            common = set(l1) & set(l2)
++            if len(common) < 2:
++                return False
++            
++            # Get relative order of common elements in each list
++            def get_relative_order(lst, elements):
++                return [item for item in lst if item in elements]
++            
++            order1 = get_relative_order(l1, common)
++            order2 = get_relative_order(l2, common)
++            
++            # Check if any pair of elements has different relative order
++            for i in range(len(order1)):
++                for j in range(i + 1, len(order1)):
++                    elem1, elem2 = order1[i], order1[j]
++                    try:
++                        idx1_in_2 = order2.index(elem1)
++                        idx2_in_2 = order2.index(elem2)
++                        # If relative order is different, we have a conflict
++                        if idx1_in_2 > idx2_in_2:
++                            return elem1, elem2
++                    except ValueError:
++                        # One of the elements is not in order2, which shouldn't happen
++                        # since we're only looking at common elements
++                        continue
++            return False
++        
++        conflict = has_conflict(list_1, list_2)
++        if conflict:
++            warnings.warn(
++                'Detected duplicate Media files in an opposite order:\n'
++                '%s\n%s' % conflict,
++                MediaOrderConflictWarning,
++            )
++        
+         # Start with a copy of list_1.
+         combined_list = list(list_1)
+         last_insert_index = len(list_1)
+@@ -138,12 +177,6 @@ class Media:
+                 # Add path to combined_list since it doesn't exist.
+                 combined_list.insert(last_insert_index, path)
+             else:
+-                if index > last_insert_index:
+-                    warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
+-                        MediaOrderConflictWarning,
+-                    )
+                 # path already exists in the list. Update last_insert_index so
+                 # that the following elements are inserted in front of this one.
+                 last_insert_index = index
+diff --git a/reproduce_issue.py b/reproduce_issue.py
+new file mode 100644
+index 0000000000..e1cf9d753b
+--- /dev/null
++++ b/reproduce_issue.py
+@@ -0,0 +1,91 @@
++#!/usr/bin/env python3
++
++import warnings
++import sys
++import os
++
++# Add the testbed directory to the Python path
++sys.path.insert(0, '/testbed')
++
++# Set up Django
++os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'test_settings')
++
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        SECRET_KEY='test-secret-key',
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django import forms
++
++class ColorPicker(forms.Widget):
++    class Media:
++        js = ['color-picker.js']
++
++class SimpleTextWidget(forms.Widget):
++    class Media:
++        js = ['text-editor.js']
++
++class FancyTextWidget(forms.Widget):
++    class Media:
++        js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++class MyForm(forms.Form):
++    background_color = forms.CharField(widget=ColorPicker())
++    intro = forms.CharField(widget=SimpleTextWidget())
++    body = forms.CharField(widget=FancyTextWidget())
++
++print("Testing the media merging issue...")
++
++# Capture warnings
++with warnings.catch_warnings(record=True) as w:
++    warnings.simplefilter("always")
++    
++    # This should trigger the MediaOrderConflictWarning
++    media = MyForm().media
++    
++    print(f"Final media: {media}")
++    print(f"Number of warnings: {len(w)}")
++    
++    if w:
++        for warning in w:
++            print(f"Warning: {warning.message}")
++            print(f"Category: {warning.category}")
++    else:
++        print("No warnings generated")
++
++print("\nLet's also test the individual merges:")
++
++# Test individual merges to understand the problem
++color_picker_media = ColorPicker().media
++simple_text_media = SimpleTextWidget().media
++fancy_text_media = FancyTextWidget().media
++
++print(f"ColorPicker media: {color_picker_media}")
++print(f"SimpleTextWidget media: {simple_text_media}")
++print(f"FancyTextWidget media: {fancy_text_media}")
++
++# Test step by step merging
++with warnings.catch_warnings(record=True) as w:
++    warnings.simplefilter("always")
++    
++    step1 = color_picker_media + simple_text_media
++    print(f"Step 1 (ColorPicker + SimpleText): {step1}")
++    if w:
++        print(f"  Warnings in step 1: {len(w)}")
++        for warning in w:
++            print(f"    {warning.message}")
++    
++    step2 = step1 + fancy_text_media
++    print(f"Step 2 (Step1 + FancyText): {step2}")
++    if len(w) > 0:
++        print(f"  Total warnings after step 2: {len(w)}")
++        for i, warning in enumerate(w):
++            print(f"    Warning {i+1}: {warning.message}")
+\ No newline at end of file
+diff --git a/test_isolated.py b/test_isolated.py
+new file mode 100644
+index 0000000000..927b31007f
+--- /dev/null
++++ b/test_isolated.py
+@@ -0,0 +1,63 @@
++#!/usr/bin/env python3
++
++import warnings
++import sys
++import os
++
++# Add the testbed directory to the Python path
++sys.path.insert(0, '/testbed')
++
++# Set up Django
++os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'test_settings')
++
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        SECRET_KEY='test-secret-key',
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.forms import Media
++
++def test_exact_django_case():
++    """Test the exact case from Django's test suite"""
++    print("=== Testing exact Django test case ===")
++    
++    with warnings.catch_warnings(record=True) as w:
++        warnings.simplefilter("always")
++        
++        # Replicate the exact test case
++        widget1 = Media(js=['custom_widget.js'])
++        widget2 = Media(js=['jquery.js', 'uses_jquery.js'])
++        form_media = widget1 + widget2
++        
++        print(f"Step 1: widget1 + widget2 = {form_media._js}")
++        print(f"Warnings after step 1: {len(w)}")
++        
++        # The inline also uses custom_widget.js. This time, it's at the end.
++        inline_media = Media(js=['jquery.js', 'also_jquery.js']) + Media(js=['custom_widget.js'])
++        
++        print(f"inline_media = {inline_media._js}")
++        print(f"Warnings after creating inline_media: {len(w)}")
++        
++        merged = form_media + inline_media
++        
++        print(f"Final merged = {merged._js}")
++        print(f"Total warnings: {len(w)}")
++        
++        expected = ['custom_widget.js', 'jquery.js', 'uses_jquery.js', 'also_jquery.js']
++        print(f"Expected: {expected}")
++        print(f"Match: {merged._js == expected}")
++        
++        if w:
++            for i, warning in enumerate(w):
++                print(f"Warning {i+1}: {warning.message}")
++
++if __name__ == "__main__":
++    test_exact_django_case()
+\ No newline at end of file
+diff --git a/test_three_way.py b/test_three_way.py
+new file mode 100644
+index 0000000000..9d81767e0d
+--- /dev/null
++++ b/test_three_way.py
+@@ -0,0 +1,60 @@
++#!/usr/bin/env python3
++
++import warnings
++import sys
++import os
++
++# Add the testbed directory to the Python path
++sys.path.insert(0, '/testbed')
++
++# Set up Django
++os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'test_settings')
++
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        SECRET_KEY='test-secret-key',
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.forms import Media
++
++def test_three_way_merge():
++    """Test the three-way merge from Django's test suite"""
++    print("=== Testing three-way merge from Django test suite ===")
++    
++    with warnings.catch_warnings(record=True) as w:
++        warnings.simplefilter("always")
++        
++        # custom_widget.js doesn't depend on jquery.js.
++        widget1 = Media(js=['custom_widget.js'])
++        widget2 = Media(js=['jquery.js', 'uses_jquery.js'])
++        form_media = widget1 + widget2
++        print(f"widget1 + widget2 = {form_media._js}")
++        
++        # The inline also uses custom_widget.js. This time, it's at the end.
++        inline_media = Media(js=['jquery.js', 'also_jquery.js']) + Media(js=['custom_widget.js'])
++        print(f"inline_media = {inline_media._js}")
++        
++        merged = form_media + inline_media
++        print(f"final merged = {merged._js}")
++        
++        expected = ['custom_widget.js', 'jquery.js', 'uses_jquery.js', 'also_jquery.js']
++        print(f"expected = {expected}")
++        print(f"matches expected: {merged._js == expected}")
++        
++        if w:
++            print(f"Warnings: {len(w)}")
++            for warning in w:
++                print(f"  {warning.message}")
++        else:
++            print("No warnings (correct)")
++
++if __name__ == "__main__":
++    test_three_way_merge()
+\ No newline at end of file

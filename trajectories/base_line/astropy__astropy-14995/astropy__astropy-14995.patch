@@ -1,0 +1,290 @@
+diff --git a/astropy/nddata/mixins/ndarithmetic.py b/astropy/nddata/mixins/ndarithmetic.py
+index 4153dfccb..a9adc82bd 100644
+--- a/astropy/nddata/mixins/ndarithmetic.py
++++ b/astropy/nddata/mixins/ndarithmetic.py
+@@ -522,6 +522,9 @@ class NDArithmeticMixin:
+             return deepcopy(operand.mask)
+         elif operand is None:
+             return deepcopy(self.mask)
++        elif operand is not None and operand.mask is None:
++            # operand has no mask, but self does - return self's mask
++            return deepcopy(self.mask)
+         else:
+             # Now lets calculate the resulting mask (operation enforces copy)
+             return handle_mask(self.mask, operand.mask, **kwds)
+diff --git a/reproduce_error.py b/reproduce_error.py
+new file mode 100644
+index 000000000..df83522b3
+--- /dev/null
++++ b/reproduce_error.py
+@@ -0,0 +1,52 @@
++#!/usr/bin/env python3
++
++import numpy as np
++from astropy.nddata import NDDataRef
++
++print("Testing NDDataRef mask propagation issue...")
++
++array = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]])
++mask = np.array([[0, 1, 64], [8, 0, 1], [2, 1, 0]])
++
++nref_nomask = NDDataRef(array)
++nref_mask = NDDataRef(array, mask=mask)
++
++print("Test 1: multiply no mask by constant (no mask * no mask)")
++try:
++    result = nref_nomask.multiply(1., handle_mask=np.bitwise_or)
++    print(f"Result mask: {result.mask}")
++    print("✓ PASS")
++except Exception as e:
++    print(f"✗ FAIL: {e}")
++
++print("\nTest 2: multiply no mask by itself (no mask * no mask)")
++try:
++    result = nref_nomask.multiply(nref_nomask, handle_mask=np.bitwise_or)
++    print(f"Result mask: {result.mask}")
++    print("✓ PASS")
++except Exception as e:
++    print(f"✗ FAIL: {e}")
++
++print("\nTest 3: multiply mask by constant (mask * no mask)")
++try:
++    result = nref_mask.multiply(1., handle_mask=np.bitwise_or)
++    print(f"Result mask: {result.mask}")
++    print("✓ PASS")
++except Exception as e:
++    print(f"✗ FAIL: {e}")
++
++print("\nTest 4: multiply mask by itself (mask * mask)")
++try:
++    result = nref_mask.multiply(nref_mask, handle_mask=np.bitwise_or)
++    print(f"Result mask: {result.mask}")
++    print("✓ PASS")
++except Exception as e:
++    print(f"✗ FAIL: {e}")
++
++print("\nTest 5: multiply mask by no mask (mask * no mask)")
++try:
++    result = nref_mask.multiply(nref_nomask, handle_mask=np.bitwise_or)
++    print(f"Result mask: {result.mask}")
++    print("✓ PASS")
++except Exception as e:
++    print(f"✗ FAIL: {e}")
+\ No newline at end of file
+diff --git a/test_bitwise_or_fix.py b/test_bitwise_or_fix.py
+new file mode 100644
+index 000000000..5dc5c45f9
+--- /dev/null
++++ b/test_bitwise_or_fix.py
+@@ -0,0 +1,46 @@
++#!/usr/bin/env python3
++
++import numpy as np
++from astropy.nddata import NDDataRef
++
++print("Testing the specific bitwise_or issue from the PR...")
++
++array = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]])
++mask = np.array([[0, 1, 64], [8, 0, 1], [2, 1, 0]])
++
++nref_nomask = NDDataRef(array)
++nref_mask = NDDataRef(array, mask=mask)
++
++# This was the failing case in the original issue
++print("Testing: nref_mask.multiply(1., handle_mask=np.bitwise_or)")
++try:
++    result = nref_mask.multiply(1., handle_mask=np.bitwise_or)
++    print("✓ SUCCESS: No exception raised")
++    print(f"Result mask:\n{result.mask}")
++    print(f"Expected mask:\n{mask}")
++    print(f"Masks are equal: {np.array_equal(result.mask, mask)}")
++except Exception as e:
++    print(f"✗ FAILED: {e}")
++
++print("\nTesting: nref_mask.multiply(nref_nomask, handle_mask=np.bitwise_or)")
++try:
++    result = nref_mask.multiply(nref_nomask, handle_mask=np.bitwise_or)
++    print("✓ SUCCESS: No exception raised")
++    print(f"Result mask:\n{result.mask}")
++    print(f"Expected mask:\n{mask}")
++    print(f"Masks are equal: {np.array_equal(result.mask, mask)}")
++except Exception as e:
++    print(f"✗ FAILED: {e}")
++
++# Test the reverse case too
++print("\nTesting: nref_nomask.multiply(nref_mask, handle_mask=np.bitwise_or)")
++try:
++    result = nref_nomask.multiply(nref_mask, handle_mask=np.bitwise_or)
++    print("✓ SUCCESS: No exception raised")
++    print(f"Result mask:\n{result.mask}")
++    print(f"Expected mask:\n{mask}")
++    print(f"Masks are equal: {np.array_equal(result.mask, mask)}")
++except Exception as e:
++    print(f"✗ FAILED: {e}")
++
++print("\nAll bitwise_or tests completed successfully!")
+\ No newline at end of file
+diff --git a/test_comprehensive.py b/test_comprehensive.py
+new file mode 100644
+index 000000000..7cd376223
+--- /dev/null
++++ b/test_comprehensive.py
+@@ -0,0 +1,112 @@
++#!/usr/bin/env python3
++
++import numpy as np
++from astropy.nddata import NDDataRef
++
++print("Comprehensive test for NDDataRef mask propagation...")
++
++array = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]])
++mask = np.array([[0, 1, 64], [8, 0, 1], [2, 1, 0]])
++
++nref_nomask = NDDataRef(array)
++nref_mask = NDDataRef(array, mask=mask)
++
++def test_operation(name, operation_func, expected_mask):
++    try:
++        result = operation_func()
++        if expected_mask is None:
++            if result.mask is None:
++                print(f"✓ {name}: PASS (mask is None as expected)")
++            else:
++                print(f"✗ {name}: FAIL (expected None, got {result.mask})")
++        else:
++            if result.mask is not None and np.array_equal(result.mask, expected_mask):
++                print(f"✓ {name}: PASS (mask matches expected)")
++            else:
++                print(f"✗ {name}: FAIL (expected {expected_mask}, got {result.mask})")
++    except Exception as e:
++        print(f"✗ {name}: FAIL with exception: {e}")
++
++# Test all arithmetic operations with different handle_mask functions
++operations = ['add', 'subtract', 'multiply', 'divide']
++handle_mask_funcs = [np.bitwise_or, np.logical_or, np.bitwise_and, np.logical_and]
++
++print("\n=== Testing with scalar operands ===")
++for op_name in operations:
++    for mask_func in handle_mask_funcs:
++        mask_func_name = mask_func.__name__
++        
++        # Test: mask * scalar (should return mask)
++        test_operation(
++            f"{op_name} mask by scalar with {mask_func_name}",
++            lambda: getattr(nref_mask, op_name)(1.0, handle_mask=mask_func),
++            mask
++        )
++        
++        # Test: nomask * scalar (should return None)
++        test_operation(
++            f"{op_name} nomask by scalar with {mask_func_name}",
++            lambda: getattr(nref_nomask, op_name)(1.0, handle_mask=mask_func),
++            None
++        )
++
++print("\n=== Testing with NDDataRef operands ===")
++for op_name in operations:
++    for mask_func in handle_mask_funcs:
++        mask_func_name = mask_func.__name__
++        
++        # Test: mask * nomask (should return mask)
++        test_operation(
++            f"{op_name} mask by nomask with {mask_func_name}",
++            lambda: getattr(nref_mask, op_name)(nref_nomask, handle_mask=mask_func),
++            mask
++        )
++        
++        # Test: nomask * mask (should return mask)
++        test_operation(
++            f"{op_name} nomask by mask with {mask_func_name}",
++            lambda: getattr(nref_nomask, op_name)(nref_mask, handle_mask=mask_func),
++            mask
++        )
++        
++        # Test: nomask * nomask (should return None)
++        test_operation(
++            f"{op_name} nomask by nomask with {mask_func_name}",
++            lambda: getattr(nref_nomask, op_name)(nref_nomask, handle_mask=mask_func),
++            None
++        )
++        
++        # Test: mask * mask (should return mask_func(mask, mask))
++        expected_mask_mask = mask_func(mask, mask)
++        test_operation(
++            f"{op_name} mask by mask with {mask_func_name}",
++            lambda: getattr(nref_mask, op_name)(nref_mask, handle_mask=mask_func),
++            expected_mask_mask
++        )
++
++print("\n=== Testing edge cases ===")
++
++# Test with different mask shapes/values
++mask2 = np.array([[1, 0, 1], [0, 1, 0], [1, 0, 1]])
++nref_mask2 = NDDataRef(array, mask=mask2)
++
++test_operation(
++    "multiply different masks with bitwise_or",
++    lambda: nref_mask.multiply(nref_mask2, handle_mask=np.bitwise_or),
++    np.bitwise_or(mask, mask2)
++)
++
++# Test with handle_mask=None (should return None regardless)
++test_operation(
++    "multiply mask by nomask with handle_mask=None",
++    lambda: nref_mask.multiply(nref_nomask, handle_mask=None),
++    None
++)
++
++test_operation(
++    "multiply mask by mask with handle_mask=None",
++    lambda: nref_mask.multiply(nref_mask, handle_mask=None),
++    None
++)
++
++print("\nAll tests completed!")
+\ No newline at end of file
+diff --git a/test_original_issue.py b/test_original_issue.py
+new file mode 100644
+index 000000000..ddb41282b
+--- /dev/null
++++ b/test_original_issue.py
+@@ -0,0 +1,38 @@
++#!/usr/bin/env python3
++
++# Test the exact examples from the PR description
++import numpy as np
++from astropy.nddata import NDDataRef
++
++array = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]])
++mask = np.array([[0, 1, 64], [8, 0, 1], [2, 1, 0]])
++
++nref_nomask = NDDataRef(array)
++nref_mask = NDDataRef(array, mask=mask)
++
++print("Testing original issue examples...")
++
++# multiply no mask by constant (no mask * no mask)
++result = nref_nomask.multiply(1., handle_mask=np.bitwise_or)
++print(f"nref_nomask.multiply(1., handle_mask=np.bitwise_or).mask = {result.mask}")
++
++# multiply no mask by itself (no mask * no mask)
++result = nref_nomask.multiply(nref_nomask, handle_mask=np.bitwise_or)
++print(f"nref_nomask.multiply(nref_nomask, handle_mask=np.bitwise_or).mask = {result.mask}")
++
++# multiply mask by constant (mask * no mask)
++result = nref_mask.multiply(1., handle_mask=np.bitwise_or)
++print(f"nref_mask.multiply(1., handle_mask=np.bitwise_or).mask =")
++print(result.mask)
++
++# multiply mask by itself (mask * mask)
++result = nref_mask.multiply(nref_mask, handle_mask=np.bitwise_or)
++print(f"nref_mask.multiply(nref_mask, handle_mask=np.bitwise_or).mask =")
++print(result.mask)
++
++# multiply mask by no mask (mask * no mask)
++result = nref_mask.multiply(nref_nomask, handle_mask=np.bitwise_or)
++print(f"nref_mask.multiply(nref_nomask, handle_mask=np.bitwise_or).mask =")
++print(result.mask)
++
++print("All original examples work correctly!")
+\ No newline at end of file
