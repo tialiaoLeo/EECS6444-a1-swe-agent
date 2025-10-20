@@ -1,0 +1,326 @@
+diff --git a/astropy/wcs/tests/test_wcs.py b/astropy/wcs/tests/test_wcs.py
+index 85853e10e5..2b854b7ca4 100644
+--- a/astropy/wcs/tests/test_wcs.py
++++ b/astropy/wcs/tests/test_wcs.py
+@@ -1093,3 +1093,31 @@ def test_keyedsip():
+     assert isinstance( w.sip, wcs.Sip )
+     assert w.sip.crpix[0] == 2048
+     assert w.sip.crpix[1] == 1026
++
++
++def test_zero_size_input():
++    """
++    Test that empty arrays are handled correctly by WCS transformations.
++    """
++    # Create a simple WCS
++    w = wcs.WCS(naxis=2)
++    w.wcs.ctype = ["RA---TAN", "DEC--TAN"]
++    w.wcs.crval = [0, 0]
++    w.wcs.crpix = [1, 1]
++    w.wcs.cdelt = [1, 1]
++    
++    # Test empty lists
++    result = w.wcs_pix2world([], [], 0)
++    assert len(result) == 2
++    assert len(result[0]) == 0
++    assert len(result[1]) == 0
++    
++    # Test empty arrays
++    result = w.wcs_pix2world(np.array([]), np.array([]), 0)
++    assert len(result) == 2
++    assert len(result[0]) == 0
++    assert len(result[1]) == 0
++    
++    # Test empty 2D array
++    result = w.wcs_pix2world(np.empty((0, 2)), 0)
++    assert result.shape == (0, 2)
+diff --git a/astropy/wcs/wcs.py b/astropy/wcs/wcs.py
+index d3a06f2b31..b482fb4243 100644
+--- a/astropy/wcs/wcs.py
++++ b/astropy/wcs/wcs.py
+@@ -1218,6 +1218,15 @@ reduce these to 2 dimensions using the naxis kwarg.
+                 raise ValueError(
+                     "Coordinate arrays are not broadcastable to each other")
+ 
++            # Handle empty arrays
++            if any([x.size == 0 for x in axes]):
++                # Return empty arrays with the correct shape
++                if ra_dec_order and sky == 'output':
++                    return (np.array([]).reshape(axes[0].shape),
++                            np.array([]).reshape(axes[0].shape))
++                return [np.array([]).reshape(axes[0].shape)
++                        for i in range(self.naxis)]
++
+             xy = np.hstack([x.reshape((x.size, 1)) for x in axes])
+ 
+             if ra_dec_order and sky == 'input':
+@@ -1235,6 +1244,11 @@ reduce these to 2 dimensions using the naxis kwarg.
+                 raise ValueError(
+                     "When providing two arguments, the array must be "
+                     "of shape (N, {0})".format(self.naxis))
++            
++            # Handle empty arrays
++            if xy.size == 0:
++                return np.empty((0, self.naxis))
++            
+             if ra_dec_order and sky == 'input':
+                 xy = self._denormalize_sky(xy)
+             result = func(xy, origin)
+diff --git a/reproduce_error.py b/reproduce_error.py
+new file mode 100644
+index 0000000000..ab7efd1f7a
+--- /dev/null
++++ b/reproduce_error.py
+@@ -0,0 +1,34 @@
++#!/usr/bin/env python
++
++import numpy as np
++from astropy.wcs import WCS
++
++# Create a simple WCS
++w = WCS(naxis=2)
++w.wcs.ctype = ["RA---TAN", "DEC--TAN"]
++w.wcs.crval = [0, 0]
++w.wcs.crpix = [1, 1]
++w.wcs.cdelt = [1, 1]
++
++print("Testing empty lists...")
++try:
++    result = w.wcs_pix2world([], [], 0)
++    print("Success! Result:", result)
++except Exception as e:
++    print("Error:", e)
++
++print("\nTesting empty arrays...")
++try:
++    result = w.wcs_pix2world(np.array([]), np.array([]), 0)
++    print("Success! Result:", result)
++except Exception as e:
++    print("Error:", e)
++
++print("\nTesting empty 2D array...")
++try:
++    result = w.wcs_pix2world(np.empty((0, 2)), 0)
++    print("Success! Result:", result)
++    print("Result shape:", result.shape)
++    print("Result type:", type(result))
++except Exception as e:
++    print("Error:", e)
+\ No newline at end of file
+diff --git a/test_comprehensive.py b/test_comprehensive.py
+new file mode 100644
+index 0000000000..a004390ff4
+--- /dev/null
++++ b/test_comprehensive.py
+@@ -0,0 +1,50 @@
++#!/usr/bin/env python
++
++import numpy as np
++from astropy.wcs import WCS
++
++# Create a simple WCS
++w = WCS(naxis=2)
++w.wcs.ctype = ["RA---TAN", "DEC--TAN"]
++w.wcs.crval = [0, 0]
++w.wcs.crpix = [1, 1]
++w.wcs.cdelt = [1, 1]
++
++# Test methods that use _array_converter
++methods_to_test = [
++    'all_pix2world',
++    'wcs_pix2world',
++    'all_world2pix',
++    'wcs_world2pix'
++]
++
++for method_name in methods_to_test:
++    method = getattr(w, method_name)
++    print(f"\nTesting {method_name}...")
++    
++    # Test empty lists
++    try:
++        if 'world2pix' in method_name:
++            result = method([], [], 0)
++        else:
++            result = method([], [], 0)
++        print(f"  Empty lists: Success! Result: {result}")
++    except Exception as e:
++        print(f"  Empty lists: Error: {e}")
++    
++    # Test empty arrays
++    try:
++        if 'world2pix' in method_name:
++            result = method(np.array([]), np.array([]), 0)
++        else:
++            result = method(np.array([]), np.array([]), 0)
++        print(f"  Empty arrays: Success! Result: {result}")
++    except Exception as e:
++        print(f"  Empty arrays: Error: {e}")
++    
++    # Test empty 2D array
++    try:
++        result = method(np.empty((0, 2)), 0)
++        print(f"  Empty 2D array: Success! Result shape: {result.shape}")
++    except Exception as e:
++        print(f"  Empty 2D array: Error: {e}")
+\ No newline at end of file
+diff --git a/test_edge_cases.py b/test_edge_cases.py
+new file mode 100644
+index 0000000000..a583388026
+--- /dev/null
++++ b/test_edge_cases.py
+@@ -0,0 +1,75 @@
++#!/usr/bin/env python
++
++import numpy as np
++from astropy.wcs import WCS
++
++# Test with different naxis values
++print("Testing with different naxis values...")
++
++# 1D WCS
++w1d = WCS(naxis=1)
++w1d.wcs.ctype = ["FREQ"]
++w1d.wcs.crval = [1e9]
++w1d.wcs.crpix = [1]
++w1d.wcs.cdelt = [1e6]
++
++print("\n1D WCS:")
++try:
++    result = w1d.wcs_pix2world([], 0)
++    print(f"  Empty list: Success! Result: {result}")
++except Exception as e:
++    print(f"  Empty list: Error: {e}")
++
++try:
++    result = w1d.wcs_pix2world(np.array([]), 0)
++    print(f"  Empty array: Success! Result: {result}")
++except Exception as e:
++    print(f"  Empty array: Error: {e}")
++
++# 3D WCS
++w3d = WCS(naxis=3)
++w3d.wcs.ctype = ["RA---TAN", "DEC--TAN", "FREQ"]
++w3d.wcs.crval = [0, 0, 1e9]
++w3d.wcs.crpix = [1, 1, 1]
++w3d.wcs.cdelt = [1, 1, 1e6]
++
++print("\n3D WCS:")
++try:
++    result = w3d.wcs_pix2world([], [], [], 0)
++    print(f"  Empty lists: Success! Result: {result}")
++except Exception as e:
++    print(f"  Empty lists: Error: {e}")
++
++try:
++    result = w3d.wcs_pix2world(np.array([]), np.array([]), np.array([]), 0)
++    print(f"  Empty arrays: Success! Result: {result}")
++except Exception as e:
++    print(f"  Empty arrays: Error: {e}")
++
++try:
++    result = w3d.wcs_pix2world(np.empty((0, 3)), 0)
++    print(f"  Empty 2D array: Success! Result shape: {result.shape}")
++except Exception as e:
++    print(f"  Empty 2D array: Error: {e}")
++
++# Test with ra_dec_order
++print("\n2D WCS with ra_dec_order=True:")
++w2d = WCS(naxis=2)
++w2d.wcs.ctype = ["RA---TAN", "DEC--TAN"]
++w2d.wcs.crval = [0, 0]
++w2d.wcs.crpix = [1, 1]
++w2d.wcs.cdelt = [1, 1]
++
++try:
++    result = w2d.all_pix2world([], [], 0, ra_dec_order=True)
++    print(f"  Empty lists with ra_dec_order: Success! Result: {result}")
++except Exception as e:
++    print(f"  Empty lists with ra_dec_order: Error: {e}")
++
++# Test mixed empty and non-empty (should fail with broadcasting error)
++print("\nTesting mixed empty and non-empty arrays (should fail):")
++try:
++    result = w2d.wcs_pix2world([1, 2], [], 0)
++    print(f"  Mixed arrays: Unexpected success! Result: {result}")
++except Exception as e:
++    print(f"  Mixed arrays: Expected error: {e}")
+\ No newline at end of file
+diff --git a/test_original_problem.py b/test_original_problem.py
+new file mode 100644
+index 0000000000..d7478d66dd
+--- /dev/null
++++ b/test_original_problem.py
+@@ -0,0 +1,21 @@
++#!/usr/bin/env python
++
++import numpy as np
++from astropy.wcs import WCS
++
++# Create a simple WCS (since we don't have the 2MASS_h.fits file)
++wcs = WCS(naxis=2)
++wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
++wcs.wcs.crval = [0, 0]
++wcs.wcs.crpix = [1, 1]
++wcs.wcs.cdelt = [1, 1]
++
++print("Testing the original problem from the PR description...")
++
++try:
++    result = wcs.wcs_pix2world([], [], 0)
++    print("Success! Result:", result)
++    print("Result types:", [type(r) for r in result])
++    print("Result shapes:", [r.shape for r in result])
++except Exception as e:
++    print("Error:", e)
+\ No newline at end of file
+diff --git a/test_other_methods.py b/test_other_methods.py
+new file mode 100644
+index 0000000000..82f2a030fc
+--- /dev/null
++++ b/test_other_methods.py
+@@ -0,0 +1,43 @@
++#!/usr/bin/env python
++
++import numpy as np
++from astropy.wcs import WCS
++
++# Create a simple WCS
++w = WCS(naxis=2)
++w.wcs.ctype = ["RA---TAN", "DEC--TAN"]
++w.wcs.crval = [0, 0]
++w.wcs.crpix = [1, 1]
++w.wcs.cdelt = [1, 1]
++
++# Test other methods that use _array_converter
++other_methods = [
++    'pix2foc',
++    'p4_pix2foc',
++    'det2im'
++]
++
++for method_name in other_methods:
++    if hasattr(w, method_name):
++        method = getattr(w, method_name)
++        print(f"\nTesting {method_name}...")
++        
++        try:
++            result = method([], [], 0)
++            print(f"  Empty lists: Success! Result: {result}")
++        except Exception as e:
++            print(f"  Empty lists: Error: {e}")
++        
++        try:
++            result = method(np.array([]), np.array([]), 0)
++            print(f"  Empty arrays: Success! Result: {result}")
++        except Exception as e:
++            print(f"  Empty arrays: Error: {e}")
++        
++        try:
++            result = method(np.empty((0, 2)), 0)
++            print(f"  Empty 2D array: Success! Result shape: {result.shape}")
++        except Exception as e:
++            print(f"  Empty 2D array: Error: {e}")
++    else:
++        print(f"\n{method_name} not available on this WCS")
+\ No newline at end of file

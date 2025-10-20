@@ -1,0 +1,165 @@
+2025-10-20 12:14:54,816 - INFO - swea-run - Starting run. Find output files at /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test
+2025-10-20 12:14:54,819 - INFO - swea-run - Running on instance astropy__astropy-7746
+2025-10-20 12:16:53,930 - INFO - swea-run - Stopping loop over instances
+2025-10-20 12:17:38,388 - INFO - swea-run - Starting run. Find output files at /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test
+2025-10-20 12:17:38,390 - INFO - swea-run - Running on instance astropy__astropy-7746
+2025-10-20 12:17:38,396 - WARNING - swea-run - Found existing trajectory with no exit status: /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test/astropy__astropy-7746/astropy__astropy-7746.traj. Removing.
+2025-10-20 12:23:46,051 - INFO - swea-run - Starting run. Find output files at /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test
+2025-10-20 12:23:46,053 - INFO - swea-run - Running on instance astropy__astropy-14365
+2025-10-20 12:23:50,966 - INFO - swea-run - Stopping loop over instances
+2025-10-20 12:24:02,979 - INFO - swea-run - Starting run. Find output files at /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test
+2025-10-20 12:24:02,981 - INFO - swea-run - Running on instance astropy__astropy-14182
+2025-10-20 12:24:22,660 - INFO - swea-run - Stopping loop over instances
+2025-10-20 12:24:30,387 - INFO - swea-run - Starting run. Find output files at /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test
+2025-10-20 12:24:30,390 - INFO - swea-run - Running on instance astropy__astropy-14182
+2025-10-20 12:24:30,393 - WARNING - swea-run - Found existing trajectory with no exit status: /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test/astropy__astropy-14182/astropy__astropy-14182.traj. Removing.
+2025-10-20 12:28:40,869 - INFO - swea-run - Running on instance astropy__astropy-14365
+2025-10-20 14:07:03,488 - INFO - swea-run - Starting run. Find output files at /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test
+2025-10-20 14:07:03,490 - INFO - swea-run - Running on instance django__django-11049
+2025-10-20 14:07:07,328 - ERROR - swea-run - Traceback (most recent call last):
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 143, in _pull_image
+    _pull_image(self._config.image, self._config.container_runtime)
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 42, in _pull_image
+    raise subprocess.CalledProcessError(e.returncode, e.cmd, e.output, e.stderr) from None
+subprocess.CalledProcessError: Command '['docker', 'pull', 'docker.io/swebench/sweb.eval.x86_64.django_1776_django-11049:latest']' returned non-zero exit status 130.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/run/run_batch.py", line 311, in run_instance
+    result = self._run_instance(instance)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/run/run_batch.py", line 358, in _run_instance
+    env.start()
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/environment/swe_env.py", line 111, in start
+    self._init_deployment()
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/environment/swe_env.py", line 183, in _init_deployment
+    asyncio.run(self.deployment.start())
+  File "/usr/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 232, in start
+    self._pull_image()
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 148, in _pull_image
+    raise DockerPullError(msg) from e
+swerex.exceptions.DockerPullError: Failed to pull image docker.io/swebench/sweb.eval.x86_64.django_1776_django-11049:latest. Error: Output: latest: Pulling from swebench/sweb.eval.x86_64.django_1776_django-11049
+762bedf4b1b7: Already exists
+9e922f6570e0: Already exists
+51fe70848edc: Already exists
+f44bfaa346f0: Already exists
+8a23aac55853: Already exists
+2778ec4c4033: Already exists
+9b8f0b816aa6: Already exists
+f499189cfd9a: Already exists
+12d313658c2e: Already exists
+d83d1825e1c7: Already exists
+4be0529e1ee7: Already exists
+e5a02bec6a00: Pulling fs layer
+92c571e56dbd: Pulling fs layer
+e5a02bec6a00: Verifying Checksum
+e5a02bec6a00: Download complete
+e5a02bec6a00: Pull complete
+
+
+2025-10-20 14:07:07,333 - ERROR - swea-run - ❌ Failed on django__django-11049: Failed to pull image docker.io/swebench/sweb.eval.x86_64.django_1776_django-11049:latest. Error: Output: latest: Pulling from swebench/sweb.eval.x86_64.django_1776_django-11049
+762bedf4b1b7: Already exists
+9e922f6570e0: Already exists
+51fe70848edc: Already exists
+f44bfaa346f0: Already exists
+8a23aac55853: Already exists
+2778ec4c4033: Already exists
+9b8f0b816aa6: Already exists
+f499189cfd9a: Already exists
+12d313658c2e: Already exists
+d83d1825e1c7: Already exists
+4be0529e1ee7: Already exists
+e5a02bec6a00: Pulling fs layer
+92c571e56dbd: Pulling fs layer
+e5a02bec6a00: Verifying Checksum
+e5a02bec6a00: Download complete
+e5a02bec6a00: Pull complete
+
+2025-10-20 14:07:15,442 - INFO - swea-run - Starting run. Find output files at /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test
+2025-10-20 14:07:15,446 - INFO - swea-run - Running on instance django__django-11039
+2025-10-20 14:07:22,589 - ERROR - swea-run - Traceback (most recent call last):
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 143, in _pull_image
+    _pull_image(self._config.image, self._config.container_runtime)
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 42, in _pull_image
+    raise subprocess.CalledProcessError(e.returncode, e.cmd, e.output, e.stderr) from None
+subprocess.CalledProcessError: Command '['docker', 'pull', 'docker.io/swebench/sweb.eval.x86_64.django_1776_django-11039:latest']' returned non-zero exit status 130.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/run/run_batch.py", line 311, in run_instance
+    result = self._run_instance(instance)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/run/run_batch.py", line 358, in _run_instance
+    env.start()
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/environment/swe_env.py", line 111, in start
+    self._init_deployment()
+  File "/home/tianpei/IdeaProjects/SWE-agent/sweagent/environment/swe_env.py", line 183, in _init_deployment
+    asyncio.run(self.deployment.start())
+  File "/usr/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 232, in start
+    self._pull_image()
+  File "/home/tianpei/IdeaProjects/SWE-agent/.venv/lib/python3.11/site-packages/swerex/deployment/docker.py", line 148, in _pull_image
+    raise DockerPullError(msg) from e
+swerex.exceptions.DockerPullError: Failed to pull image docker.io/swebench/sweb.eval.x86_64.django_1776_django-11039:latest. Error: Output: latest: Pulling from swebench/sweb.eval.x86_64.django_1776_django-11039
+762bedf4b1b7: Already exists
+9e922f6570e0: Already exists
+51fe70848edc: Already exists
+f44bfaa346f0: Already exists
+8a23aac55853: Already exists
+2778ec4c4033: Already exists
+9b8f0b816aa6: Already exists
+f499189cfd9a: Already exists
+12d313658c2e: Already exists
+d83d1825e1c7: Already exists
+4be0529e1ee7: Already exists
+408dea54a6da: Pulling fs layer
+09eaea84e34b: Pulling fs layer
+408dea54a6da: Download complete
+408dea54a6da: Pull complete
+
+
+2025-10-20 14:07:22,595 - ERROR - swea-run - ❌ Failed on django__django-11039: Failed to pull image docker.io/swebench/sweb.eval.x86_64.django_1776_django-11039:latest. Error: Output: latest: Pulling from swebench/sweb.eval.x86_64.django_1776_django-11039
+762bedf4b1b7: Already exists
+9e922f6570e0: Already exists
+51fe70848edc: Already exists
+f44bfaa346f0: Already exists
+8a23aac55853: Already exists
+2778ec4c4033: Already exists
+9b8f0b816aa6: Already exists
+f499189cfd9a: Already exists
+12d313658c2e: Already exists
+d83d1825e1c7: Already exists
+4be0529e1ee7: Already exists
+408dea54a6da: Pulling fs layer
+09eaea84e34b: Pulling fs layer
+408dea54a6da: Download complete
+408dea54a6da: Pull complete
+
+2025-10-20 14:07:32,350 - INFO - swea-run - Starting run. Find output files at /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test
+2025-10-20 14:07:32,352 - INFO - swea-run - Running on instance django__django-11019
+2025-10-20 14:14:02,020 - INFO - swea-run - Starting run. Find output files at /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test
+2025-10-20 14:14:02,023 - INFO - swea-run - Running on instance django__django-11019
+2025-10-20 14:22:00,768 - INFO - swea-run - Starting run. Find output files at /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test
+2025-10-20 14:22:00,771 - INFO - swea-run - Running on instance astropy__astropy-7746
+2025-10-20 14:22:00,790 - INFO - swea-run - ⏭️ Skipping existing trajectory: /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test/astropy__astropy-7746/astropy__astropy-7746.traj
+2025-10-20 14:22:22,279 - INFO - swea-run - Starting run. Find output files at /home/tianpei/IdeaProjects/SWE-agent/trajectories/tianpei/default__claude-sonnet-4-20250514__t-0.00__p-1.00__c-0.50___swe_bench_lite_test
+2025-10-20 14:22:22,282 - INFO - swea-run - Running on instance astropy__astropy-7746

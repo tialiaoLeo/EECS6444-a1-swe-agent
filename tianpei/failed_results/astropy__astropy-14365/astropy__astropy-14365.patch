@@ -1,0 +1,364 @@
+diff --git a/astropy/io/ascii/qdp.py b/astropy/io/ascii/qdp.py
+index 83a4f004a..83ea51f66 100644
+--- a/astropy/io/ascii/qdp.py
++++ b/astropy/io/ascii/qdp.py
+@@ -34,6 +34,8 @@ def _line_type(line, delimiter=None):
+     --------
+     >>> _line_type("READ SERR 3")
+     'command'
++    >>> _line_type("read serr 3")
++    'command'
+     >>> _line_type(" \\n    !some gibberish")
+     'comment'
+     >>> _line_type("   ")
+@@ -68,7 +70,7 @@ def _line_type(line, delimiter=None):
+     _new_re = rf"NO({sep}NO)+"
+     _data_re = rf"({_decimal_re}|NO|[-+]?nan)({sep}({_decimal_re}|NO|[-+]?nan))*)"
+     _type_re = rf"^\s*((?P<command>{_command_re})|(?P<new>{_new_re})|(?P<data>{_data_re})?\s*(\!(?P<comment>.*))?\s*$"
+-    _line_type_re = re.compile(_type_re)
++    _line_type_re = re.compile(_type_re, re.IGNORECASE)
+     line = line.strip()
+     if not line:
+         return "comment"
+diff --git a/reproduce_error.py b/reproduce_error.py
+new file mode 100644
+index 000000000..da01f0199
+--- /dev/null
++++ b/reproduce_error.py
+@@ -0,0 +1,33 @@
++#!/usr/bin/env python3
++
++"""Script to reproduce the case sensitivity issue in QDP parser."""
++
++import tempfile
++import os
++from astropy.table import Table
++
++# Create a test QDP file with lowercase commands
++test_content = """read serr 1 2 
++1 0.5 1 0.5
++"""
++
++# Write to a temporary file
++with tempfile.NamedTemporaryFile(mode='w', suffix='.qdp', delete=False) as f:
++    f.write(test_content)
++    temp_file = f.name
++
++try:
++    print("Attempting to read QDP file with lowercase commands...")
++    print(f"File content:\n{test_content}")
++    
++    # This should fail with the current implementation
++    table = Table.read(temp_file, format='ascii.qdp')
++    print("SUCCESS: Table read successfully!")
++    print(table)
++    
++except Exception as e:
++    print(f"ERROR: {e}")
++    
++finally:
++    # Clean up
++    os.unlink(temp_file)
+\ No newline at end of file
+diff --git a/test_case_insensitive.py b/test_case_insensitive.py
+new file mode 100644
+index 000000000..b113757fa
+--- /dev/null
++++ b/test_case_insensitive.py
+@@ -0,0 +1,84 @@
++#!/usr/bin/env python3
++
++"""Comprehensive test for case insensitive QDP commands."""
++
++import tempfile
++import os
++from astropy.table import Table
++
++def test_case_variations():
++    """Test various case combinations for QDP commands."""
++    
++    test_cases = [
++        # Original uppercase (should still work)
++        ("READ SERR 1 2\n1 0.5 1 0.5", "uppercase READ SERR"),
++        ("READ TERR 1\n1 0.5 -0.3", "uppercase READ TERR"),
++        
++        # Lowercase (the main issue)
++        ("read serr 1 2\n1 0.5 1 0.5", "lowercase read serr"),
++        ("read terr 1\n1 0.5 -0.3", "lowercase read terr"),
++        
++        # Mixed case
++        ("Read Serr 1 2\n1 0.5 1 0.5", "mixed case Read Serr"),
++        ("READ serr 1 2\n1 0.5 1 0.5", "mixed case READ serr"),
++        ("read SERR 1 2\n1 0.5 1 0.5", "mixed case read SERR"),
++        ("Read TERR 1\n1 0.5 -0.3", "mixed case Read TERR"),
++        
++        # All lowercase
++        ("read terr 1\n1 0.5 -0.3", "all lowercase read terr"),
++    ]
++    
++    for test_content, description in test_cases:
++        print(f"\nTesting {description}...")
++        print(f"Content: {repr(test_content)}")
++        
++        # Write to a temporary file
++        with tempfile.NamedTemporaryFile(mode='w', suffix='.qdp', delete=False) as f:
++            f.write(test_content)
++            temp_file = f.name
++        
++        try:
++            table = Table.read(temp_file, format='ascii.qdp')
++            print(f"SUCCESS: {description}")
++            print(f"Columns: {table.colnames}")
++            print(f"Number of rows: {len(table)}")
++            
++        except Exception as e:
++            print(f"ERROR with {description}: {e}")
++            
++        finally:
++            os.unlink(temp_file)
++
++def test_complex_example():
++    """Test a more complex example with multiple commands and mixed case."""
++    
++    complex_content = """! Test file with mixed case commands
++read terr 1
++READ SERR 3
++! Some data
++1.0 0.1 -0.05 2.0 0.2 3.0
++2.0 0.15 -0.1 3.0 0.3 4.0
++"""
++    
++    print(f"\nTesting complex example with mixed case commands...")
++    print(f"Content:\n{complex_content}")
++    
++    with tempfile.NamedTemporaryFile(mode='w', suffix='.qdp', delete=False) as f:
++        f.write(complex_content)
++        temp_file = f.name
++    
++    try:
++        table = Table.read(temp_file, format='ascii.qdp', names=['a', 'b', 'c'])
++        print("SUCCESS: Complex example with mixed case")
++        print(f"Columns: {table.colnames}")
++        print(f"Table:\n{table}")
++        
++    except Exception as e:
++        print(f"ERROR with complex example: {e}")
++        
++    finally:
++        os.unlink(temp_file)
++
++if __name__ == "__main__":
++    test_case_variations()
++    test_complex_example()
+\ No newline at end of file
+diff --git a/test_comprehensive_case_insensitive.py b/test_comprehensive_case_insensitive.py
+new file mode 100644
+index 000000000..4e290d723
+--- /dev/null
++++ b/test_comprehensive_case_insensitive.py
+@@ -0,0 +1,138 @@
++#!/usr/bin/env python3
++
++"""Comprehensive test for case insensitive QDP commands."""
++
++import tempfile
++import os
++from astropy.table import Table
++from astropy.io.ascii.qdp import _line_type
++
++def test_line_type_function():
++    """Test the _line_type function directly with various cases."""
++    
++    print("Testing _line_type function directly...")
++    
++    # Test various case combinations for commands
++    test_cases = [
++        ("READ SERR 1 2", "command"),
++        ("read serr 1 2", "command"),
++        ("Read Serr 1 2", "command"),
++        ("READ serr 1 2", "command"),
++        ("read SERR 1 2", "command"),
++        ("READ TERR 1", "command"),
++        ("read terr 1", "command"),
++        ("Read Terr 1", "command"),
++        ("READ terr 1", "command"),
++        ("read TERR 1", "command"),
++        # Test data lines (should not be affected)
++        ("1.0 2.0 3.0", "data,3"),
++        ("NO NO NO", "new"),
++        ("! comment", "comment"),
++        ("", "comment"),
++    ]
++    
++    for line, expected in test_cases:
++        result = _line_type(line)
++        assert result == expected, f"Expected {expected} for '{line}', got {result}"
++        print(f"✓ '{line}' -> '{result}'")
++    
++    print("All _line_type tests passed!")
++
++def test_table_reading():
++    """Test reading tables with various case combinations."""
++    
++    print("\nTesting table reading with various case combinations...")
++    
++    test_cases = [
++        # Simple SERR cases
++        ("READ SERR 1\n1.0 0.1", ["col1", "col1_err"]),
++        ("read serr 1\n1.0 0.1", ["col1", "col1_err"]),
++        ("Read Serr 1\n1.0 0.1", ["col1", "col1_err"]),
++        
++        # Simple TERR cases  
++        ("READ TERR 1\n1.0 0.1 -0.05", ["col1", "col1_perr", "col1_nerr"]),
++        ("read terr 1\n1.0 0.1 -0.05", ["col1", "col1_perr", "col1_nerr"]),
++        ("Read Terr 1\n1.0 0.1 -0.05", ["col1", "col1_perr", "col1_nerr"]),
++        
++        # Multiple commands
++        ("READ TERR 1\nREAD SERR 2\n1.0 0.1 -0.05 2.0 0.2", ["col1", "col1_perr", "col1_nerr", "col2", "col2_err"]),
++        ("read terr 1\nread serr 2\n1.0 0.1 -0.05 2.0 0.2", ["col1", "col1_perr", "col1_nerr", "col2", "col2_err"]),
++        ("Read Terr 1\nRead Serr 2\n1.0 0.1 -0.05 2.0 0.2", ["col1", "col1_perr", "col1_nerr", "col2", "col2_err"]),
++        
++        # Mixed case commands
++        ("READ terr 1\nread SERR 2\n1.0 0.1 -0.05 2.0 0.2", ["col1", "col1_perr", "col1_nerr", "col2", "col2_err"]),
++        ("read TERR 1\nREAD serr 2\n1.0 0.1 -0.05 2.0 0.2", ["col1", "col1_perr", "col1_nerr", "col2", "col2_err"]),
++    ]
++    
++    for i, (content, expected_columns) in enumerate(test_cases):
++        print(f"\nTest case {i+1}: {repr(content[:20])}...")
++        
++        with tempfile.NamedTemporaryFile(mode='w', suffix='.qdp', delete=False) as f:
++            f.write(content)
++            temp_file = f.name
++        
++        try:
++            table = Table.read(temp_file, format='ascii.qdp')
++            assert table.colnames == expected_columns, f"Expected {expected_columns}, got {table.colnames}"
++            print(f"✓ Columns: {table.colnames}")
++            
++        except Exception as e:
++            print(f"✗ ERROR: {e}")
++            raise
++            
++        finally:
++            os.unlink(temp_file)
++    
++    print("All table reading tests passed!")
++
++def test_complex_mixed_case():
++    """Test a complex file with mixed case commands and comments."""
++    
++    print("\nTesting complex mixed case file...")
++    
++    complex_content = """! Test file with mixed case commands
++! This should work with case insensitive parsing
++read terr 1
++READ SERR 3
++! Some data with comments
++1.0 0.1 -0.05 2.0 0.2 3.0
++2.0 0.15 -0.1 3.0 0.3 4.0
++NO NO NO NO NO NO
++! Second table
++3.0 0.2 -0.15 4.0 0.4 5.0
++"""
++    
++    with tempfile.NamedTemporaryFile(mode='w', suffix='.qdp', delete=False) as f:
++        f.write(complex_content)
++        temp_file = f.name
++    
++    try:
++        # Read first table
++        table = Table.read(temp_file, format='ascii.qdp', table_id=0, names=['a', 'b', 'c'])
++        expected_columns = ['a', 'a_perr', 'a_nerr', 'b', 'c', 'c_err']
++        assert table.colnames == expected_columns, f"Expected {expected_columns}, got {table.colnames}"
++        assert len(table) == 2, f"Expected 2 rows, got {len(table)}"
++        print(f"✓ First table columns: {table.colnames}")
++        print(f"✓ First table rows: {len(table)}")
++        
++        # Read second table
++        table2 = Table.read(temp_file, format='ascii.qdp', table_id=1, names=['a', 'b', 'c'])
++        assert table2.colnames == expected_columns, f"Expected {expected_columns}, got {table2.colnames}"
++        assert len(table2) == 1, f"Expected 1 row, got {len(table2)}"
++        print(f"✓ Second table columns: {table2.colnames}")
++        print(f"✓ Second table rows: {len(table2)}")
++        
++    except Exception as e:
++        print(f"✗ ERROR: {e}")
++        raise
++        
++    finally:
++        os.unlink(temp_file)
++    
++    print("Complex mixed case test passed!")
++
++if __name__ == "__main__":
++    test_line_type_function()
++    test_table_reading()
++    test_complex_mixed_case()
++    print("\n🎉 All comprehensive tests PASSED!")
+\ No newline at end of file
+diff --git a/test_pr_case.py b/test_pr_case.py
+new file mode 100644
+index 000000000..635feb778
+--- /dev/null
++++ b/test_pr_case.py
+@@ -0,0 +1,59 @@
++#!/usr/bin/env python3
++
++"""Test the specific case mentioned in the PR description."""
++
++import tempfile
++import os
++from astropy.table import Table
++
++def test_pr_case():
++    """Test the exact case from the PR description."""
++    
++    # This is the exact content from the PR description
++    test_content = """read serr 1 2 
++1 0.5 1 0.5
++"""
++    
++    print("Testing the exact case from the PR description...")
++    print(f"Content: {repr(test_content)}")
++    
++    # Write to a temporary file
++    with tempfile.NamedTemporaryFile(mode='w', suffix='.qdp', delete=False) as f:
++        f.write(test_content)
++        temp_file = f.name
++    
++    try:
++        # This should work now with our fix
++        table = Table.read(temp_file, format='ascii.qdp')
++        print("SUCCESS: Table read successfully!")
++        print(f"Columns: {table.colnames}")
++        print(f"Table:\n{table}")
++        
++        # Verify the structure is correct
++        expected_columns = ['col1', 'col1_err', 'col2', 'col2_err']
++        assert table.colnames == expected_columns, f"Expected {expected_columns}, got {table.colnames}"
++        
++        # Verify the data
++        assert len(table) == 1, f"Expected 1 row, got {len(table)}"
++        assert table['col1'][0] == 1, f"Expected col1=1, got {table['col1'][0]}"
++        assert table['col1_err'][0] == 0.5, f"Expected col1_err=0.5, got {table['col1_err'][0]}"
++        assert table['col2'][0] == 1, f"Expected col2=1, got {table['col2'][0]}"
++        assert table['col2_err'][0] == 0.5, f"Expected col2_err=0.5, got {table['col2_err'][0]}"
++        
++        print("All assertions passed!")
++        return True
++        
++    except Exception as e:
++        print(f"ERROR: {e}")
++        return False
++        
++    finally:
++        os.unlink(temp_file)
++
++if __name__ == "__main__":
++    success = test_pr_case()
++    if success:
++        print("\n✅ PR case test PASSED")
++    else:
++        print("\n❌ PR case test FAILED")
++        exit(1)
+\ No newline at end of file

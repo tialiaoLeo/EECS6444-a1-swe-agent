@@ -1,0 +1,229 @@
+diff --git a/debug_merge.py b/debug_merge.py
+new file mode 100644
+index 0000000000..f0e978a1d6
+--- /dev/null
++++ b/debug_merge.py
+@@ -0,0 +1,57 @@
++#!/usr/bin/env python3
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        SECRET_KEY='test-secret-key',
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.forms.widgets import Media
++
++def debug_merge(list1, list2):
++    print(f"Merging {list1} with {list2}")
++    result = Media.merge(list1, list2)
++    print(f"Result: {result}")
++    print()
++    return result
++
++if __name__ == '__main__':
++    # Test the specific case from the PR
++    print("=== Testing the PR case ===")
++    
++    # Step 1: ColorPicker + SimpleTextWidget
++    step1 = debug_merge(['color-picker.js'], ['text-editor.js'])
++    
++    # Step 2: Result + FancyTextWidget  
++    step2 = debug_merge(step1, ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
++    
++    print("=== Testing alternative orders ===")
++    
++    # What if we merge in a different order?
++    # SimpleTextWidget + FancyTextWidget first
++    alt_step1 = debug_merge(['text-editor.js'], ['text-editor.js', 'text-editor-extras.js', 'color-picker.js'])
++    
++    # Then add ColorPicker
++    alt_step2 = debug_merge(['color-picker.js'], alt_step1)
++    
++    print("=== Testing direct three-way merge ===")
++    
++    # What if we could merge all three at once?
++    # This would require a different algorithm
++    lists = [
++        ['color-picker.js'],
++        ['text-editor.js'], 
++        ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++    ]
++    
++    print("Lists to merge:", lists)
++    print("Expected result: ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']")
+\ No newline at end of file
+diff --git a/debug_warning.py b/debug_warning.py
+new file mode 100644
+index 0000000000..c8f94f6b68
+--- /dev/null
++++ b/debug_warning.py
+@@ -0,0 +1,29 @@
++#!/usr/bin/env python3
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        SECRET_KEY='test-secret-key',
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.forms.widgets import Media
++import warnings
++
++# Capture warnings
++with warnings.catch_warnings(record=True) as w:
++    warnings.simplefilter("always")
++    result = Media.merge([1, 2], [2, 1])
++    print("Result:", result)
++    if w:
++        print("Warning message:", str(w[0].message))
++    else:
++        print("No warning generated")
+\ No newline at end of file
+diff --git a/django/forms/widgets.py b/django/forms/widgets.py
+index 02aa32b207..1b817bee3b 100644
+--- a/django/forms/widgets.py
++++ b/django/forms/widgets.py
+@@ -125,6 +125,23 @@ class Media:
+         in a certain order. In JavaScript you may not be able to reference a
+         global or in CSS you might want to override a style.
+         """
++        # Check for genuine conflicts between the two lists
++        def has_conflict(item1, item2):
++            """Check if item1 and item2 have conflicting order in the two lists."""
++            try:
++                index1_in_list1 = list_1.index(item1)
++                index2_in_list1 = list_1.index(item2)
++                index1_in_list2 = list_2.index(item1)
++                index2_in_list2 = list_2.index(item2)
++                
++                # Check if the relative order is different in both lists
++                order_in_list1 = index1_in_list1 < index2_in_list1
++                order_in_list2 = index1_in_list2 < index2_in_list2
++                return order_in_list1 != order_in_list2
++            except ValueError:
++                # One or both items not in both lists, so no conflict
++                return False
++        
+         # Start with a copy of list_1.
+         combined_list = list(list_1)
+         last_insert_index = len(list_1)
+@@ -139,11 +156,16 @@ class Media:
+                 combined_list.insert(last_insert_index, path)
+             else:
+                 if index > last_insert_index:
+-                    warnings.warn(
+-                        'Detected duplicate Media files in an opposite order:\n'
+-                        '%s\n%s' % (combined_list[last_insert_index], combined_list[index]),
+-                        MediaOrderConflictWarning,
+-                    )
++                    # Check if there's a genuine conflict by looking at the next item
++                    # that will be processed (which is at last_insert_index in the current state)
++                    if last_insert_index < len(combined_list):
++                        next_item = combined_list[last_insert_index]
++                        if has_conflict(path, next_item):
++                            warnings.warn(
++                                'Detected duplicate Media files in an opposite order:\n'
++                                '%s\n%s' % (next_item, path),
++                                MediaOrderConflictWarning,
++                            )
+                 # path already exists in the list. Update last_insert_index so
+                 # that the following elements are inserted in front of this one.
+                 last_insert_index = index
+diff --git a/reproduce_issue.py b/reproduce_issue.py
+new file mode 100644
+index 0000000000..f6d6170807
+--- /dev/null
++++ b/reproduce_issue.py
+@@ -0,0 +1,51 @@
++#!/usr/bin/env python3
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        SECRET_KEY='test-secret-key',
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django import forms
++
++class ColorPicker(forms.Widget):
++    class Media:
++        js = ['color-picker.js']
++
++class SimpleTextWidget(forms.Widget):
++    class Media:
++        js = ['text-editor.js']
++
++class FancyTextWidget(forms.Widget):
++    class Media:
++        js = ['text-editor.js', 'text-editor-extras.js', 'color-picker.js']
++
++class MyForm(forms.Form):
++    background_color = forms.CharField(widget=ColorPicker())
++    intro = forms.CharField(widget=SimpleTextWidget())
++    body = forms.CharField(widget=FancyTextWidget())
++
++if __name__ == '__main__':
++    print("Testing media merging...")
++    
++    # Test individual widgets
++    print("ColorPicker media:", ColorPicker().media)
++    print("SimpleTextWidget media:", SimpleTextWidget().media)
++    print("FancyTextWidget media:", FancyTextWidget().media)
++    
++    # Test the form media - this should trigger the warning
++    print("\nForm media:")
++    form = MyForm()
++    print(form.media)
++    
++    print("\nExpected order: text-editor.js, text-editor-extras.js, color-picker.js")
++    print("Actual order:", form.media._js)
+\ No newline at end of file
+diff --git a/test_dict_union.py b/test_dict_union.py
+new file mode 100644
+index 0000000000..be39eaca2f
+--- /dev/null
++++ b/test_dict_union.py
+@@ -0,0 +1,14 @@
++#!/usr/bin/env python3
++
++# Test if dict union operator works
++css = {'screen': ['a.css']}
++obj = {'all': ['b.css']}
++
++try:
++    result = css.keys() | obj.keys()
++    print("Dict union works:", result)
++except Exception as e:
++    print("Dict union failed:", e)
++    print("Python version issue - need to use set() constructor")
++    result = set(css.keys()) | set(obj.keys())
++    print("Alternative works:", result)
+\ No newline at end of file
