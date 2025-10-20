@@ -1250,7 +1250,8 @@ class DefaultAgent(AbstractAgent):
                         "message": v.get("message"),
                         "description": v.get("description"),
                         "evidence": v.get("evidence"),
-                        "suggested_fix": v.get("suggested_fix")
+                        "suggested_fix": v.get("suggested_fix"),
+                        "metadata": v.get("metadata")
                     }
     def middle_ware_shell(self,n_step,script_path):
         proc = subprocess.Popen(
@@ -1287,7 +1288,7 @@ class DefaultAgent(AbstractAgent):
         result = self.get_violation_details(self._problem_statement.id, "/home/tianpei/IdeaProjects/SWE-agent/sweagent/agent/violations.json")
 
 
-        self.messages[0]['content'] = original_content + f'we have observing error message in json, and provided the evidence and suggested_fix: {result}'
+        self.messages[0]['content'] = original_content + f'We have observing error message in json, and provided the evidence, suggested_fix amd metadata: {result}'
 
         step_output = self.forward_with_handling(self.messages)
         self.logger.info(f"self.messages:\n{self.messages}")
