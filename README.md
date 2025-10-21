@@ -8,6 +8,11 @@ The goal is to evaluate how well agentic workflows can understand issue descript
 
 ---
 
+## Benchmark result
+- **Baseline:** https://github.com/tialiaoLeo/EECS6444-a1-swe-agent/tree/master/tianpei/base_line 
+- **Extension result:** https://github.com/tialiaoLeo/EECS6444-a1-swe-agent/tree/master/tianpei/middle_ware_result2 
+---
+
 ## 🚀 Project Goals
 - **Replication:** Reproduce SWE-Agent’s performance on selected SWE-Bench tasks.  
 - **Extension:** Enhance SWE-Agent with additional middleware to analyze runtime and import errors during execution and feed them back to the model.  
